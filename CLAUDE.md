@@ -9,6 +9,12 @@ A house management application for tracking tasks, rooms, and household responsi
 - **Route protection** via withAuth HOC
 - **Future**: Restrict access to specific Google accounts (you + partner)
 
+### Firebase Security Configuration
+- **Environment Variables**: Firebase config moved to `.env.local` with `NEXT_PUBLIC_` prefix
+- **Public by Design**: Firebase client config values are meant to be public (not sensitive)
+- **Real Security**: Comes from Firestore Security Rules + Firebase Auth server-side validation
+- **API Restrictions**: Should be configured in Firebase Console (domain restrictions, etc.)
+
 ## Database Architecture Decisions (2025-01-11)
 
 ### Chosen Approach: Denormalized with authorizedUsers Arrays
@@ -92,6 +98,17 @@ users/{userId}
 - ⏳ Data models and hooks
 - ⏳ Core CRUD operations
 - ⏳ Real-time sync implementation
+
+## Coding Standards
+**IMPORTANT**: All code work must follow the comprehensive coding standards documented in the README.md file. This includes:
+- Component naming conventions and directory structure
+- View component abstraction pattern (pages re-export View components)
+- TypeScript type patterns and naming
+- Tailwind CSS styling guidelines
+- Loader system usage
+- Hook patterns and organization
+
+Always reference the README.md for proper implementation patterns before writing code.
 
 ## Tech Stack
 - **Frontend**: Next.js 15 (Pages Router), React 19, TypeScript
