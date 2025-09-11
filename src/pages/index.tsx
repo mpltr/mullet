@@ -1,5 +1,7 @@
 import Image from "next/image";
 import { Geist, Geist_Mono } from "next/font/google";
+import { withAuth } from "../components/withAuth";
+import { useAuth } from "../contexts/AuthContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -11,12 +13,22 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export default function Home() {
+function Home() {
+  const { user, logout } = useAuth();
   return (
     <div
       className={`${geistSans.className} ${geistMono.className} font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20`}
     >
       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
+        <div className="w-full flex justify-between items-center">
+          <span className="text-sm text-gray-600">Welcome, {user?.email}</span>
+          <button
+            onClick={() => logout()}
+            className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Logout
+          </button>
+        </div>
         <Image
           className="dark:invert"
           src="/next.svg"
@@ -113,3 +125,5 @@ export default function Home() {
     </div>
   );
 }
+
+export default withAuth(Home);
