@@ -327,6 +327,7 @@ interface GetHouseListAdditionalParamsType {
 #### Purpose
 
 - **Routing only** - handle Next.js routing and `getServerSideProps`
+- **Re-export View components** - pages simply import and re-export the corresponding View component
 - **No component logic** - all UI logic belongs in View components
 - **Data fetching** - use loaders to fetch data server-side
 - **Generated via CLI** to create pages with corresponding View components
@@ -335,16 +336,20 @@ interface GetHouseListAdditionalParamsType {
 
 **Page Component Types:**
 
-- **Page props**: Use the View component's props type directly
-- **GetServerSideProps**: Leverage loader response types for type safety
+- **Page exports**: Simply re-export View components (no additional props needed)
+- **GetServerSideProps**: Leverage loader response types for type safety, props flow directly to View component
 
 **Examples:**
 
 ```typescript
-// Page component uses View component props
-const Home: React.FC<ViewHomeProps> = (props) => {
-  return <ViewHome {...props} />;
-};
+// Page simply re-exports the View component
+import { ViewHome } from '@/components/ViewHome/ViewHome';
+export default ViewHome;
+
+// Or with HOCs (authentication, etc.)
+import { withAuth } from '@/components/withAuth';
+import { ViewHome } from '@/components/ViewHome/ViewHome';
+export default withAuth(ViewHome);
 
 // GetServerSideProps with typed loader responses
 export const getServerSideProps: GetServerSideProps = async (context) => {
