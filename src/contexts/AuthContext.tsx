@@ -6,6 +6,7 @@ import {
   onAuthStateChanged
 } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
+import { userService } from '../lib/database';
 
 interface AuthContextType {
   user: User | null;
@@ -33,8 +34,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
+      
+      // Create or update user profile in Firestore
+      if (user) {
+        try {
+          await userService.createOrUpdate(
+            user.uid,
+            user.email!,
+            {
+              name: user.displayName || undefined,
+              photoURL: user.photoURL || undefined
+            }
+          );
+        } catch (error) {
+          console.error('Error creating/updating user profile:', error);
+        }
+      }
+      
       setLoading(false);
     });
 

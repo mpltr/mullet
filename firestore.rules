@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to get user ID
+    function getUserId() {
+      return request.auth.uid;
+    }
+    
+    // Users collection - users can only read/write their own document
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && getUserId() == userId;
+    }
+    
+    // Homes collection - users can only access homes they are members of
+    match /homes/{homeId} {
+      allow read: if isAuthenticated() && 
+                     getUserId() in resource.data.members;
+      
+      allow create: if isAuthenticated() && 
+                       getUserId() == request.resource.data.createdBy &&
+                       getUserId() in request.resource.data.members;
+      
+      allow update: if isAuthenticated() && 
+                       getUserId() in resource.data.members;
+      
+      allow delete: if isAuthenticated() && 
+                       getUserId() == resource.data.createdBy;
+    }
+    
+    // Rooms collection - users can only access rooms in homes they're members of
+    match /rooms/{roomId} {
+      allow read, write: if isAuthenticated() && 
+                            getUserId() in resource.data.authorizedUsers;
+      
+      allow create: if isAuthenticated() && 
+                       getUserId() in request.resource.data.authorizedUsers;
+    }
+    
+    // Tasks collection - users can only access tasks they're authorized for
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated() && 
+                     getUserId() in resource.data.authorizedUsers;
+      
+      allow create: if isAuthenticated() && 
+                       getUserId() == request.resource.data.createdBy &&
+                       getUserId() in request.resource.data.authorizedUsers;
+      
+      allow update: if isAuthenticated() && 
+                       getUserId() in resource.data.authorizedUsers;
+      
+      allow delete: if isAuthenticated() && 
+                       (getUserId() == resource.data.createdBy || 
+                        getUserId() in resource.data.authorizedUsers);
+    }
+  }
+}

@@ -1,7 +1,7 @@
-# Mullet - House Management App
+# Mullet - Home Management App
 
 ## Project Overview
-A house management application for tracking tasks, rooms, and household responsibilities. Built with Next.js (Pages Router), Firebase Authentication, and Firestore.
+A home management application for tracking tasks, rooms, and household responsibilities. Built with Next.js (Pages Router), Firebase Authentication, and Firestore.
 
 ## Authentication Decisions (2025-01-11)
 - **Google OAuth only** - No email/password authentication
@@ -19,12 +19,12 @@ A house management application for tracking tasks, rooms, and household responsi
 
 ### Chosen Approach: Denormalized with authorizedUsers Arrays
 
-**Rationale**: Best balance of query performance, real-time sync, and simplicity for household-scale application.
+**Rationale**: Best balance of query performance, real-time sync, and simplicity for home-scale application.
 
 ### Firestore Collections Structure
 
 ```
-houses/{houseId}
+homes/{homeId}
 ├── name: string
 ├── createdBy: string (userId)
 ├── createdAt: timestamp
@@ -32,16 +32,16 @@ houses/{houseId}
 
 rooms/{roomId}
 ├── name: string
-├── houseId: string
+├── homeId: string
 ├── createdAt: timestamp
-└── authorizedUsers: string[] (inherited from house members)
+└── authorizedUsers: string[] (inherited from home members)
 
 tasks/{taskId}
 ├── title: string
 ├── description: string
 ├── status: string (pending|in_progress|completed)
 ├── dueDate: timestamp
-├── houseId: string
+├── homeId: string
 ├── roomId: string (optional)
 ├── assignedTo: string (userId)
 ├── createdBy: string (userId)
@@ -52,20 +52,20 @@ users/{userId}
 ├── email: string
 ├── name: string
 ├── photoURL: string
-├── houses: string[] (houseIds for quick access)
+├── homes: string[] (homeIds for quick access)
 └── createdAt: timestamp
 ```
 
 ### Query Patterns
 - **User's tasks**: `where('authorizedUsers', 'array-contains', userId)`
-- **House tasks**: `where('houseId', '==', houseId)`
+- **Home tasks**: `where('homeId', '==', homeId)`
 - **Room tasks**: `where('roomId', '==', roomId)`
 - **Assigned tasks**: `where('assignedTo', '==', userId)`
 
 ### Security Rules Strategy
 - Security rules filter data at database level before returning to client
-- Users can only access houses where they are members
-- Tasks/rooms inherit access from house membership
+- Users can only access homes where they are members
+- Tasks/rooms inherit access from home membership
 - Real-time listeners automatically respect security boundaries
 
 ### Real-time Features
@@ -82,7 +82,7 @@ users/{userId}
 
 **Cons:**
 - Data duplication in authorizedUsers arrays
-- Write complexity when house membership changes
+- Write complexity when home membership changes
 - Need to maintain consistency across denormalized data
 
 ### Future Considerations
