@@ -237,23 +237,24 @@ export function useTasksByRoom(userId: string, roomId: string) {
 }
 
 // Hook for real-time home invitations for a specific home
-export function useHomeInvitations(homeId: string) {
+export function useHomeInvitations(homeId: string, invitedBy?: string) {
   const [invitations, setInvitations] = useState<HomeInvitationType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!homeId) {
+    if (!homeId || !invitedBy) {
       setLoading(false);
       setInvitations([]);
       return;
     }
 
-    console.log('🔍 Query: home_invitations where homeId ==', homeId);
+    console.log('🔍 Query: home_invitations where homeId ==', homeId, 'and invitedBy ==', invitedBy);
 
     const q = query(
       collection(db, COLLECTIONS.HOME_INVITATIONS),
-      where('homeId', '==', homeId)
+      where('homeId', '==', homeId),
+      where('invitedBy', '==', invitedBy)
     );
 
     const unsubscribe = onSnapshot(

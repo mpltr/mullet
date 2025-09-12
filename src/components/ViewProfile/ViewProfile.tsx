@@ -42,7 +42,8 @@ const HomeDetails = memo(function HomeDetails({
   
   // Only owners should see pending invitations they sent
   const { invitations, loading: invitationsLoading, error } = useHomeInvitations(
-    isOwner ? home.id : '' // Only query if user is owner
+    isOwner ? home.id : '', // Only query if user is owner
+    isOwner && user ? user.uid : undefined // Pass user ID for filtering
   );
   
 

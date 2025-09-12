@@ -132,10 +132,11 @@ export const homeService = {
       throw new Error('Only the home owner can delete the home');
     }
     
-    // Delete all pending invitations for this home
+    // Delete pending invitations created by this user for this home
     const invitationsQuery = query(
       collection(db, COLLECTIONS.HOME_INVITATIONS),
       where('homeId', '==', homeId),
+      where('invitedBy', '==', userId),
       where('status', '==', 'pending')
     );
     const invitationsSnapshot = await getDocs(invitationsQuery);
@@ -145,8 +146,9 @@ export const homeService = {
     await Promise.all([
       deleteDoc(doc(db, COLLECTIONS.HOMES, homeId)),
       ...deleteInvitationsPromises,
-      // Remove home from all members' user documents
-      ...home.members.map(memberId => userService.removeHome(memberId, homeId))
+      // Only remove home from the current user's document (owner)
+      // Other members will see the home is gone when they next load the app
+      userService.removeHome(userId, homeId)
     ]);
     
     // TODO: Delete associated rooms and tasks
@@ -348,8 +350,8 @@ export const userService = {
 export const homeInvitationService = {
   // Create a new invitation
   async create(homeId: string, invitedEmail: string, invitedBy: string): Promise<string> {
-    // Check if invitation already exists and is pending
-    const existingInvite = await this.getByHomeAndEmail(homeId, invitedEmail);
+    // Check if invitation already exists and is pending (for this specific inviter)
+    const existingInvite = await this.getByHomeAndEmail(homeId, invitedEmail, invitedBy);
     if (existingInvite && existingInvite.status === 'pending') {
       throw new Error('Invitation already pending for this email');
     }
@@ -398,12 +400,13 @@ export const homeInvitationService = {
     })) as HomeInvitationType[];
   },
 
-  // Get invitation by home and email
-  async getByHomeAndEmail(homeId: string, email: string): Promise<HomeInvitationType | null> {
+  // Get invitation by home and email (for current user's invitations only)
+  async getByHomeAndEmail(homeId: string, email: string, invitedBy: string): Promise<HomeInvitationType | null> {
     const q = query(
       collection(db, COLLECTIONS.HOME_INVITATIONS),
       where('homeId', '==', homeId),
       where('invitedEmail', '==', email.toLowerCase()),
+      where('invitedBy', '==', invitedBy),
       where('status', '==', 'pending')
     );
     
