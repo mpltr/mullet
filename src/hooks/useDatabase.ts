@@ -8,7 +8,9 @@ import {
   Unsubscribe 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { HomeType, RoomType, TaskType, HomeInvitationType, COLLECTIONS } from '../types/database';
+import { HomeType, RoomType, TaskType, HomeInvitationType, HomeTypeWithMembers, HomeMember, COLLECTIONS } from '../types/database';
+import { userService } from '../lib/database';
+import { useUsers } from '../contexts/UserContext';
 
 // Convert Firestore Timestamp to Date
 const convertTimestamps = (data: any): any => {
@@ -334,4 +336,68 @@ export function useUserInvitations(userEmail: string) {
   }, [userEmail]);
 
   return { invitations, loading, error };
+}
+
+// Hook for homes with populated member email addresses
+export function useHomesWithMembers(userId: string) {
+  const [homesWithMembers, setHomesWithMembers] = useState<HomeTypeWithMembers[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Use the existing useHomes hook and UserContext
+  const { homes, loading: homesLoading, error: homesError } = useHomes(userId);
+  const { getUsersByIds } = useUsers();
+
+  useEffect(() => {
+    if (homesLoading) {
+      setLoading(true);
+      return;
+    }
+
+    if (homesError) {
+      setError(homesError);
+      setLoading(false);
+      return;
+    }
+
+    if (homes.length === 0) {
+      setHomesWithMembers([]);
+      setLoading(false);
+      return;
+    }
+
+    // Get all unique member IDs from all homes
+    const allMemberIds = [...new Set(homes.flatMap(home => home.members))];
+    
+    // Fetch user details for all members using UserContext (with caching)
+    getUsersByIds(allMemberIds)
+      .then(users => {
+        // Create a lookup map for quick access
+        const userLookup = new Map(users.map(user => [user.id, user]));
+        
+        // Transform homes with populated member data
+        const enrichedHomes: HomeTypeWithMembers[] = homes.map(home => ({
+          ...home,
+          members: home.members.map(memberId => {
+            const user = userLookup.get(memberId);
+            return {
+              uid: memberId,
+              email: user?.email || 'Unknown',
+              name: user?.name
+            } as HomeMember;
+          })
+        }));
+        
+        setHomesWithMembers(enrichedHomes);
+        setLoading(false);
+        setError(null);
+      })
+      .catch(err => {
+        console.error('Error fetching member details:', err);
+        setError(err.message);
+        setLoading(false);
+      });
+  }, [homes, homesLoading, homesError, getUsersByIds]);
+
+  return { homes: homesWithMembers, loading, error };
 }

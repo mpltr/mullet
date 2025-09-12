@@ -8,6 +8,16 @@ export interface HomeType {
   members: string[]; // userIds
 }
 
+export interface HomeMember {
+  uid: string;
+  email: string;
+  name?: string;
+}
+
+export interface HomeTypeWithMembers extends Omit<HomeType, 'members'> {
+  members: HomeMember[];
+}
+
 export interface RoomType {
   id: string;
   name: string;

@@ -195,6 +195,30 @@ export const taskService = {
 
 // User CRUD Operations
 export const userService = {
+  // Get multiple users by their IDs
+  async getByIds(userIds: string[]): Promise<UserType[]> {
+    if (userIds.length === 0) return [];
+    
+    console.log('🔍 Query: users where __name__ in', userIds);
+    
+    // Firestore 'in' queries are limited to 10 items, so batch if needed
+    const batches: Promise<UserType[]>[] = [];
+    for (let i = 0; i < userIds.length; i += 10) {
+      const batchIds = userIds.slice(i, i + 10);
+      const batchPromise = getDocs(
+        query(collection(db, COLLECTIONS.USERS), where('__name__', 'in', batchIds))
+      ).then(snapshot => 
+        snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...convertTimestamps(doc.data())
+        } as UserType))
+      );
+      batches.push(batchPromise);
+    }
+    
+    const results = await Promise.all(batches);
+    return results.flat();
+  },
   // Create or update user profile
   async createOrUpdate(
     userId: string, 

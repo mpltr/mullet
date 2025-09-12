@@ -3,15 +3,16 @@ import { useAuth } from '../../contexts/AuthContext';
 import { CogIcon, HomeIcon, BellIcon, QuestionMarkCircleIcon, ChevronDownIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Navigation } from "../Navigation";
 import { Input } from "../Input";
-import { useHomes, useHomeInvitations, useUserInvitations } from '../../hooks/useDatabase';
+import { useHomes, useHomeInvitations, useUserInvitations, useHomesWithMembers } from '../../hooks/useDatabase';
 import { homeService, homeInvitationService } from '../../lib/database';
+import { HomeTypeWithMembers } from '../../types/database';
 
 export interface ViewProfileProps {
   // Add any props needed from getServerSideProps or parent components
 }
 
 interface HomeDetailsProps {
-  home: any;
+  home: HomeTypeWithMembers;
   user: any;
   isExpanded: boolean;
   onToggleExpanded: () => void;
@@ -32,7 +33,7 @@ const HomeDetails = memo(function HomeDetails({
   isSendingInvite
 }: HomeDetailsProps) {
   const isOwner = home.createdBy === user?.uid;
-  const isMember = home.members.includes(user?.uid || '');
+  const isMember = home.members.some(member => member.uid === user?.uid);
   
   // Only owners should see pending invitations they sent
   const { invitations, loading: invitationsLoading, error } = useHomeInvitations(
@@ -74,19 +75,23 @@ const HomeDetails = memo(function HomeDetails({
             <div className="mt-3">
               <p className="text-xs font-medium text-gray-700 mb-2">Members ({home.members.length})</p>
               <div className="space-y-1">
-                {home.members.map((memberId: string) => (
-                  <div key={memberId} className="flex items-center justify-between text-xs py-1">
+                {home.members.map((member) => (
+                  <div key={member.uid} className="flex items-center justify-between text-xs py-1">
                     <div className="text-gray-600">
-                      {memberId === user?.uid ? `You (${user?.email})` : `User ${memberId.slice(-6)}`}
-                      {memberId === home.createdBy && <span className="ml-1 text-gray-400">(Owner)</span>}
+                      {member.uid === user?.uid ? (
+                        <span>You ({member.email})</span>
+                      ) : (
+                        <span>{member.name || member.email}</span>
+                      )}
+                      {member.uid === home.createdBy && <span className="ml-1 text-gray-400">(Owner)</span>}
                     </div>
                     {/* Only owner can remove members (except themselves) */}
-                    {isOwner && memberId !== user?.uid && (
+                    {isOwner && member.uid !== user?.uid && (
                       <button
                         onClick={async () => {
                           try {
                             // TODO: Implement member removal
-                            console.log('Removing member:', memberId);
+                            console.log('Removing member:', member.uid, member.email);
                           } catch (error) {
                             console.error('Error removing member:', error);
                           }
@@ -178,7 +183,7 @@ export function ViewProfile(props: ViewProfileProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [inviteEmails, setInviteEmails] = useState<Record<string, string>>({});
   const [isSendingInvite, setIsSendingInvite] = useState<Record<string, boolean>>({});
-  const { homes, loading: homesLoading } = useHomes(user?.uid || '');
+  const { homes, loading: homesLoading } = useHomesWithMembers(user?.uid || '');
   const { invitations: userInvitations, loading: invitationsLoading } = useUserInvitations(user?.email || '');
 
   const handleCreateHome = async () => {
