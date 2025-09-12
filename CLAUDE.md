@@ -1,0 +1,118 @@
+# Mullet - Home Management App
+
+## Project Overview
+A home management application for tracking tasks, rooms, and household responsibilities. Built with Next.js (Pages Router), Firebase Authentication, and Firestore.
+
+## Authentication Decisions (2025-01-11)
+- **Google OAuth only** - No email/password authentication
+- **Client-side authentication** using Firebase Auth Context
+- **Route protection** via withAuth HOC
+- **Future**: Restrict access to specific Google accounts (you + partner)
+
+### Firebase Security Configuration
+- **Environment Variables**: Firebase config moved to `.env.local` with `NEXT_PUBLIC_` prefix
+- **Public by Design**: Firebase client config values are meant to be public (not sensitive)
+- **Real Security**: Comes from Firestore Security Rules + Firebase Auth server-side validation
+- **API Restrictions**: Should be configured in Firebase Console (domain restrictions, etc.)
+
+## Database Architecture Decisions (2025-01-11)
+
+### Chosen Approach: Denormalized with authorizedUsers Arrays
+
+**Rationale**: Best balance of query performance, real-time sync, and simplicity for home-scale application.
+
+### Firestore Collections Structure
+
+```
+homes/{homeId}
+├── name: string
+├── createdBy: string (userId)
+├── createdAt: timestamp
+└── members: string[] (userIds)
+
+rooms/{roomId}
+├── name: string
+├── homeId: string
+├── createdAt: timestamp
+└── authorizedUsers: string[] (inherited from home members)
+
+tasks/{taskId}
+├── title: string
+├── description: string
+├── status: string (pending|in_progress|completed)
+├── dueDate: timestamp
+├── homeId: string
+├── roomId: string (optional)
+├── assignedTo: string (userId)
+├── createdBy: string (userId)
+├── createdAt: timestamp
+└── authorizedUsers: string[] (for efficient user-specific queries)
+
+users/{userId}
+├── email: string
+├── name: string
+├── photoURL: string
+├── homes: string[] (homeIds for quick access)
+└── createdAt: timestamp
+```
+
+### Query Patterns
+- **User's tasks**: `where('authorizedUsers', 'array-contains', userId)`
+- **Home tasks**: `where('homeId', '==', homeId)`
+- **Room tasks**: `where('roomId', '==', roomId)`
+- **Assigned tasks**: `where('assignedTo', '==', userId)`
+
+### Security Rules Strategy
+- Security rules filter data at database level before returning to client
+- Users can only access homes where they are members
+- Tasks/rooms inherit access from home membership
+- Real-time listeners automatically respect security boundaries
+
+### Real-time Features
+- Firestore listeners for live updates across devices
+- Optimistic updates for responsive UI
+- Offline support built into Firestore
+
+### Trade-offs
+**Pros:**
+- Excellent query performance for user-specific data
+- Real-time sync works seamlessly
+- Security enforced at database level
+- Familiar relational-like patterns
+
+**Cons:**
+- Data duplication in authorizedUsers arrays
+- Write complexity when home membership changes
+- Need to maintain consistency across denormalized data
+
+### Future Considerations
+- Use Firebase Functions for complex write operations (maintaining consistency)
+- Consider user-centric subcollections if scale becomes an issue (10k+ tasks per user)
+- Implement batch operations for bulk updates
+
+## Implementation Status
+- ✅ Firebase Authentication (Google OAuth)
+- ✅ Route protection
+- ✅ Basic app structure
+- ⏳ Firestore database setup
+- ⏳ Data models and hooks
+- ⏳ Core CRUD operations
+- ⏳ Real-time sync implementation
+
+## Coding Standards
+**IMPORTANT**: All code work must follow the comprehensive coding standards documented in the README.md file. This includes:
+- Component naming conventions and directory structure
+- View component abstraction pattern (pages re-export View components)
+- TypeScript type patterns and naming
+- Tailwind CSS styling guidelines
+- Loader system usage
+- Hook patterns and organization
+
+Always reference the README.md for proper implementation patterns before writing code.
+
+## Tech Stack
+- **Frontend**: Next.js 15 (Pages Router), React 19, TypeScript
+- **Styling**: Tailwind CSS
+- **Authentication**: Firebase Auth (Google OAuth)
+- **Database**: Firestore
+- **Hosting**: TBD
