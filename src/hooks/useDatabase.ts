@@ -8,7 +8,7 @@ import {
   Unsubscribe 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { HomeType, RoomType, TaskType, COLLECTIONS } from '../types/database';
+import { HomeType, RoomType, TaskType, HomeInvitationType, COLLECTIONS } from '../types/database';
 
 // Convert Firestore Timestamp to Date
 const convertTimestamps = (data: any): any => {
@@ -45,6 +45,8 @@ export function useHomes(userId: string) {
       return;
     }
 
+    console.log('🔍 Query: homes where members array-contains', userId);
+    
     const q = query(
       collection(db, COLLECTIONS.HOMES),
       where('members', 'array-contains', userId)
@@ -112,6 +114,8 @@ export function useRooms(homeId: string) {
       return;
     }
 
+    console.log('🔍 Query: rooms where homeId ==', homeId);
+    
     const q = query(
       collection(db, COLLECTIONS.ROOMS),
       where('homeId', '==', homeId),
@@ -157,6 +161,8 @@ export function useTasks(userId: string) {
       return;
     }
 
+    console.log('🔍 Query: tasks where authorizedUsers array-contains', userId);
+    
     const q = query(
       collection(db, COLLECTIONS.TASKS),
       where('authorizedUsers', 'array-contains', userId)
@@ -224,4 +230,125 @@ export function useTasksByRoom(userId: string, roomId: string) {
   const roomTasks = tasks.filter(task => task.roomId === roomId);
 
   return { tasks: roomTasks, loading, error };
+}
+
+// Hook for real-time home invitations for a specific home
+export function useHomeInvitations(homeId: string) {
+  const [invitations, setInvitations] = useState<HomeInvitationType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!homeId) {
+      setLoading(false);
+      setInvitations([]);
+      return;
+    }
+
+    console.log('🔍 Query: home_invitations where homeId ==', homeId);
+
+    const q = query(
+      collection(db, COLLECTIONS.HOME_INVITATIONS),
+      where('homeId', '==', homeId)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const invitationsData: HomeInvitationType[] = [];
+        querySnapshot.forEach((doc) => {
+          invitationsData.push({
+            id: doc.id,
+            ...convertTimestamps(doc.data())
+          } as HomeInvitationType);
+        });
+
+        const pendingInvitations = invitationsData.filter(inv => inv.status === 'pending');
+        pendingInvitations.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        
+        setInvitations(pendingInvitations);
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        console.error('Error in invitations listener:', err);
+        setInvitations([]);
+        setError(err.message);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [homeId]);
+
+  return { invitations, loading, error };
+}
+
+// Hook for real-time invitations for a user by email
+export function useUserInvitations(userEmail: string) {
+  const [invitations, setInvitations] = useState<HomeInvitationType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!userEmail) {
+      setLoading(false);
+      return;
+    }
+
+    // Remove orderBy to avoid composite index requirement
+    const q = query(
+      collection(db, COLLECTIONS.HOME_INVITATIONS),
+      where('invitedEmail', '==', userEmail.toLowerCase()),
+      where('status', '==', 'pending')
+    );
+
+    let unsubscribe: Unsubscribe;
+    
+    try {
+      unsubscribe = onSnapshot(
+        q,
+        (querySnapshot) => {
+          const invitationsData: HomeInvitationType[] = [];
+          querySnapshot.forEach((doc) => {
+            invitationsData.push({
+              id: doc.id,
+              ...convertTimestamps(doc.data())
+            } as HomeInvitationType);
+          });
+          // Sort by createdAt descending on client side
+          invitationsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+          setInvitations(invitationsData);
+          setLoading(false);
+          setError(null);
+        },
+        (err) => {
+          // Handle permission denied errors gracefully
+          if (err.code === 'permission-denied' || err.code === 'firestore/permission-denied') {
+            setInvitations([]);
+            setError(null);
+          } else {
+            console.error('Error fetching user invitations:', err);
+            setError(err.message);
+          }
+          setLoading(false);
+        }
+      );
+    } catch (err: any) {
+      // Handle permission denied errors for new collections
+      if (err.code === 'permission-denied' || err.code === 'firestore/permission-denied') {
+        setInvitations([]);
+        setError(null);
+      } else {
+        console.error('Error setting up user invitations listener:', err);
+        setError(err.message);
+      }
+      setLoading(false);
+      return () => {};
+    }
+
+    return () => unsubscribe();
+  }, [userEmail]);
+
+  return { invitations, loading, error };
 }

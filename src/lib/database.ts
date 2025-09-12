@@ -15,7 +15,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { HomeType, RoomType, TaskType, UserType, COLLECTIONS } from '../types/database';
+import { HomeType, RoomType, TaskType, UserType, HomeInvitationType, COLLECTIONS } from '../types/database';
 
 // Utility function to convert Firestore Timestamp to Date
 const convertTimestamps = (data: any): any => {
@@ -248,5 +248,115 @@ export const userService = {
         homes: [...homes, homeId]
       });
     }
+  }
+};
+
+// Home Invitation CRUD Operations
+export const homeInvitationService = {
+  // Create a new invitation
+  async create(homeId: string, invitedEmail: string, invitedBy: string): Promise<string> {
+    // Check if invitation already exists and is pending
+    const existingInvite = await this.getByHomeAndEmail(homeId, invitedEmail);
+    if (existingInvite && existingInvite.status === 'pending') {
+      throw new Error('Invitation already pending for this email');
+    }
+
+    const inviteData = {
+      homeId,
+      invitedEmail: invitedEmail.toLowerCase(),
+      invitedBy,
+      createdAt: serverTimestamp(),
+      status: 'pending' as const
+    };
+    
+    const docRef = await addDoc(collection(db, COLLECTIONS.HOME_INVITATIONS), inviteData);
+    return docRef.id;
+  },
+
+  // Get pending invitations for a home
+  async getPendingByHome(homeId: string): Promise<HomeInvitationType[]> {
+    const q = query(
+      collection(db, COLLECTIONS.HOME_INVITATIONS),
+      where('homeId', '==', homeId),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...convertTimestamps(doc.data())
+    })) as HomeInvitationType[];
+  },
+
+  // Get invitations for a user by email
+  async getPendingByEmail(email: string): Promise<HomeInvitationType[]> {
+    const q = query(
+      collection(db, COLLECTIONS.HOME_INVITATIONS),
+      where('invitedEmail', '==', email.toLowerCase()),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...convertTimestamps(doc.data())
+    })) as HomeInvitationType[];
+  },
+
+  // Get invitation by home and email
+  async getByHomeAndEmail(homeId: string, email: string): Promise<HomeInvitationType | null> {
+    const q = query(
+      collection(db, COLLECTIONS.HOME_INVITATIONS),
+      where('homeId', '==', homeId),
+      where('invitedEmail', '==', email.toLowerCase()),
+      where('status', '==', 'pending')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) return null;
+    
+    const doc = querySnapshot.docs[0];
+    return {
+      id: doc.id,
+      ...convertTimestamps(doc.data())
+    } as HomeInvitationType;
+  },
+
+  // Accept invitation
+  async accept(invitationId: string, userId: string): Promise<void> {
+    const inviteRef = doc(db, COLLECTIONS.HOME_INVITATIONS, invitationId);
+    const inviteDoc = await getDoc(inviteRef);
+    
+    if (!inviteDoc.exists()) {
+      throw new Error('Invitation not found');
+    }
+    
+    const invitation = inviteDoc.data() as HomeInvitationType;
+    if (invitation.status !== 'pending') {
+      throw new Error('Invitation is no longer pending');
+    }
+    
+    // Add user to home members
+    await homeService.addMember(invitation.homeId, userId);
+    
+    // Mark invitation as accepted
+    await updateDoc(inviteRef, {
+      status: 'accepted'
+    });
+  },
+
+  // Decline invitation
+  async decline(invitationId: string): Promise<void> {
+    const inviteRef = doc(db, COLLECTIONS.HOME_INVITATIONS, invitationId);
+    await updateDoc(inviteRef, {
+      status: 'declined'
+    });
+  },
+
+  // Delete (revoke) invitation
+  async delete(invitationId: string): Promise<void> {
+    await deleteDoc(doc(db, COLLECTIONS.HOME_INVITATIONS, invitationId));
   }
 };

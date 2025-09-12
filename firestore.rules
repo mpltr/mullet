@@ -58,5 +58,10 @@ service cloud.firestore {
                        (getUserId() == resource.data.createdBy || 
                         getUserId() in resource.data.authorizedUsers);
     }
+    
+    // Home Invitations collection - completely open for debugging
+    match /home_invitations/{inviteId} {
+      allow read, write: if true;
+    }
   }
 }

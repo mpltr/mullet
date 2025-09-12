@@ -41,10 +41,20 @@ export interface UserType {
   lastLoginAt: Date;
 }
 
+export interface HomeInvitationType {
+  id: string;
+  homeId: string;
+  invitedEmail: string;
+  invitedBy: string; // userId who sent the invite
+  createdAt: Date;
+  status: 'pending' | 'accepted' | 'declined';
+}
+
 // Collection names as constants
 export const COLLECTIONS = {
   HOMES: 'homes',
   ROOMS: 'rooms',
   TASKS: 'tasks',
-  USERS: 'users'
+  USERS: 'users',
+  HOME_INVITATIONS: 'home_invitations'
 } as const;
