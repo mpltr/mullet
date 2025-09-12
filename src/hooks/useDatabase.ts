@@ -293,59 +293,42 @@ export function useUserInvitations(userEmail: string) {
   useEffect(() => {
     if (!userEmail) {
       setLoading(false);
+      setInvitations([]);
       return;
     }
 
-    // Remove orderBy to avoid composite index requirement
+    console.log('🔍 Query: home_invitations where invitedEmail ==', userEmail.toLowerCase());
+
     const q = query(
       collection(db, COLLECTIONS.HOME_INVITATIONS),
       where('invitedEmail', '==', userEmail.toLowerCase()),
       where('status', '==', 'pending')
     );
 
-    let unsubscribe: Unsubscribe;
-    
-    try {
-      unsubscribe = onSnapshot(
-        q,
-        (querySnapshot) => {
-          const invitationsData: HomeInvitationType[] = [];
-          querySnapshot.forEach((doc) => {
-            invitationsData.push({
-              id: doc.id,
-              ...convertTimestamps(doc.data())
-            } as HomeInvitationType);
-          });
-          // Sort by createdAt descending on client side
-          invitationsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-          setInvitations(invitationsData);
-          setLoading(false);
-          setError(null);
-        },
-        (err) => {
-          // Handle permission denied errors gracefully
-          if (err.code === 'permission-denied' || err.code === 'firestore/permission-denied') {
-            setInvitations([]);
-            setError(null);
-          } else {
-            console.error('Error fetching user invitations:', err);
-            setError(err.message);
-          }
-          setLoading(false);
-        }
-      );
-    } catch (err: any) {
-      // Handle permission denied errors for new collections
-      if (err.code === 'permission-denied' || err.code === 'firestore/permission-denied') {
-        setInvitations([]);
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const invitationsData: HomeInvitationType[] = [];
+        querySnapshot.forEach((doc) => {
+          invitationsData.push({
+            id: doc.id,
+            ...convertTimestamps(doc.data())
+          } as HomeInvitationType);
+        });
+        
+        // Sort by createdAt descending on client side
+        invitationsData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        setInvitations(invitationsData);
+        setLoading(false);
         setError(null);
-      } else {
-        console.error('Error setting up user invitations listener:', err);
+      },
+      (err) => {
+        console.error('Error fetching user invitations:', err);
+        setInvitations([]);
         setError(err.message);
+        setLoading(false);
       }
-      setLoading(false);
-      return () => {};
-    }
+    );
 
     return () => unsubscribe();
   }, [userEmail]);

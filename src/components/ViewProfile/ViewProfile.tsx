@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { CogIcon, HomeIcon, BellIcon, QuestionMarkCircleIcon, ChevronDownIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Navigation } from "../Navigation";
 import { Input } from "../Input";
-import { useHomes, useHomeInvitations } from '../../hooks/useDatabase';
+import { useHomes, useHomeInvitations, useUserInvitations } from '../../hooks/useDatabase';
 import { homeService, homeInvitationService } from '../../lib/database';
 
 export interface ViewProfileProps {
@@ -31,8 +31,13 @@ const HomeDetails = memo(function HomeDetails({
   onSendInvite,
   isSendingInvite
 }: HomeDetailsProps) {
-  const { invitations, loading: invitationsLoading, error } = useHomeInvitations(home.id);
   const isOwner = home.createdBy === user?.uid;
+  const isMember = home.members.includes(user?.uid || '');
+  
+  // Only owners should see pending invitations they sent
+  const { invitations, loading: invitationsLoading, error } = useHomeInvitations(
+    isOwner ? home.id : '' // Only query if user is owner
+  );
   
 
   return (
@@ -52,7 +57,7 @@ const HomeDetails = memo(function HomeDetails({
         </div>
         <div className="flex items-center space-x-2">
           <span className="text-xs text-gray-400">
-            {isOwner ? 'Owner' : 'Member'}
+            {isOwner ? 'Owner' : isMember ? 'Member' : 'Non-member'}
           </span>
           {isExpanded ? (
             <ChevronDownIcon className="w-4 h-4 text-gray-400" />
@@ -64,18 +69,45 @@ const HomeDetails = memo(function HomeDetails({
 
       {isExpanded && (
         <div className="px-3 pb-3 border-t border-gray-100">
-          {/* Members List */}
-          <div className="mt-3">
-            <p className="text-xs font-medium text-gray-700 mb-2">Members ({home.members.length})</p>
-            <div className="space-y-1">
-              {home.members.map((memberId: string) => (
-                <div key={memberId} className="text-xs text-gray-600 py-1">
-                  {memberId === user?.uid ? 'You' : `User ${memberId.slice(-6)}`}
-                  {memberId === home.createdBy && <span className="ml-1 text-gray-400">(Owner)</span>}
-                </div>
-              ))}
+          {/* Members List - visible to owners and members only */}
+          {(isOwner || isMember) && (
+            <div className="mt-3">
+              <p className="text-xs font-medium text-gray-700 mb-2">Members ({home.members.length})</p>
+              <div className="space-y-1">
+                {home.members.map((memberId: string) => (
+                  <div key={memberId} className="flex items-center justify-between text-xs py-1">
+                    <div className="text-gray-600">
+                      {memberId === user?.uid ? `You (${user?.email})` : `User ${memberId.slice(-6)}`}
+                      {memberId === home.createdBy && <span className="ml-1 text-gray-400">(Owner)</span>}
+                    </div>
+                    {/* Only owner can remove members (except themselves) */}
+                    {isOwner && memberId !== user?.uid && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            // TODO: Implement member removal
+                            console.log('Removing member:', memberId);
+                          } catch (error) {
+                            console.error('Error removing member:', error);
+                          }
+                        }}
+                        className="text-red-500 hover:text-red-700 ml-2"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Non-members see nothing */}
+          {!isOwner && !isMember && (
+            <div className="mt-3 text-center py-4">
+              <p className="text-xs text-gray-500">You are not a member of this home</p>
+            </div>
+          )}
 
           {/* Owner-only invite functionality */}
           {isOwner && (
@@ -147,6 +179,7 @@ export function ViewProfile(props: ViewProfileProps) {
   const [inviteEmails, setInviteEmails] = useState<Record<string, string>>({});
   const [isSendingInvite, setIsSendingInvite] = useState<Record<string, boolean>>({});
   const { homes, loading: homesLoading } = useHomes(user?.uid || '');
+  const { invitations: userInvitations, loading: invitationsLoading } = useUserInvitations(user?.email || '');
 
   const handleCreateHome = async () => {
     if (!user?.uid || !homeName.trim()) return;
@@ -224,6 +257,61 @@ export function ViewProfile(props: ViewProfileProps) {
           
           {/* Menu items */}
           <div className="space-y-4">
+            {/* Pending Invitations section */}
+            {userInvitations.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="p-4">
+                  <h3 className="font-medium text-gray-900 mb-3">
+                    Pending Invitations ({userInvitations.length})
+                  </h3>
+                  <div className="space-y-3">
+                    {userInvitations.map((invitation) => {
+                      // Find the home this invitation is for
+                      const invitedHome = homes.find(home => home.id === invitation.homeId);
+                      return (
+                        <div key={invitation.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {invitedHome ? `Invitation to "${invitedHome.name}"` : 'Home invitation'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              From: {invitation.invitedBy === user?.uid ? 'You' : `User ${invitation.invitedBy.slice(-6)}`}
+                            </p>
+                          </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await homeInvitationService.accept(invitation.id, user!.uid);
+                              } catch (error) {
+                                console.error('Error accepting invite:', error);
+                              }
+                            }}
+                            className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await homeInvitationService.decline(invitation.id);
+                              } catch (error) {
+                                console.error('Error declining invite:', error);
+                              }
+                            }}
+                            className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {/* Homes section - expandable */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200">
               <button 
