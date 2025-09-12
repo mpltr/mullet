@@ -60,6 +60,11 @@ export interface HomeInvitationType {
   status: 'pending' | 'accepted' | 'declined';
 }
 
+export interface EnrichedHomeInvitationType extends HomeInvitationType {
+  homeName: string;
+  inviterName: string;
+}
+
 // Collection names as constants
 export const COLLECTIONS = {
   HOMES: 'homes',

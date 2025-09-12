@@ -99,6 +99,58 @@ export const homeService = {
     });
     
     await userService.addHome(userId, homeId);
+  },
+
+  // Remove member from home (leave home)
+  async removeMember(homeId: string, userId: string): Promise<void> {
+    const homeRef = doc(db, COLLECTIONS.HOMES, homeId);
+    const home = await this.getById(homeId);
+    
+    if (!home || !home.members.includes(userId)) return;
+    
+    // Don't allow owner to leave their own home
+    if (home.createdBy === userId) {
+      throw new Error('Home owner cannot leave home. Delete the home instead.');
+    }
+    
+    await updateDoc(homeRef, {
+      members: home.members.filter(memberId => memberId !== userId)
+    });
+    
+    await userService.removeHome(userId, homeId);
+  },
+
+  // Delete home (owner only)
+  async delete(homeId: string, userId: string): Promise<void> {
+    const home = await this.getById(homeId);
+    
+    if (!home) {
+      throw new Error('Home not found');
+    }
+    
+    if (home.createdBy !== userId) {
+      throw new Error('Only the home owner can delete the home');
+    }
+    
+    // Delete all pending invitations for this home
+    const invitationsQuery = query(
+      collection(db, COLLECTIONS.HOME_INVITATIONS),
+      where('homeId', '==', homeId),
+      where('status', '==', 'pending')
+    );
+    const invitationsSnapshot = await getDocs(invitationsQuery);
+    const deleteInvitationsPromises = invitationsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    
+    // Delete the home document and cleanup in parallel
+    await Promise.all([
+      deleteDoc(doc(db, COLLECTIONS.HOMES, homeId)),
+      ...deleteInvitationsPromises,
+      // Remove home from all members' user documents
+      ...home.members.map(memberId => userService.removeHome(memberId, homeId))
+    ]);
+    
+    // TODO: Delete associated rooms and tasks
+    // This would require additional cleanup queries
   }
 };
 
@@ -272,6 +324,23 @@ export const userService = {
         homes: [...homes, homeId]
       });
     }
+  },
+
+  // Remove home from user's homes array
+  async removeHome(userId: string, homeId: string): Promise<void> {
+    const userRef = doc(db, COLLECTIONS.USERS, userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) return;
+    
+    const userData = userDoc.data();
+    const homes = userData.homes || [];
+    
+    if (homes.includes(homeId)) {
+      await updateDoc(userRef, {
+        homes: homes.filter((id: string) => id !== homeId)
+      });
+    }
   }
 };
 
@@ -365,18 +434,26 @@ export const homeInvitationService = {
     // Add user to home members
     await homeService.addMember(invitation.homeId, userId);
     
-    // Mark invitation as accepted
-    await updateDoc(inviteRef, {
-      status: 'accepted'
-    });
+    // Delete the invitation after successful acceptance
+    await deleteDoc(inviteRef);
   },
 
   // Decline invitation
   async decline(invitationId: string): Promise<void> {
     const inviteRef = doc(db, COLLECTIONS.HOME_INVITATIONS, invitationId);
-    await updateDoc(inviteRef, {
-      status: 'declined'
-    });
+    const inviteDoc = await getDoc(inviteRef);
+    
+    if (!inviteDoc.exists()) {
+      throw new Error('Invitation not found');
+    }
+    
+    const invitation = inviteDoc.data() as HomeInvitationType;
+    if (invitation.status !== 'pending') {
+      throw new Error('Invitation is no longer pending');
+    }
+    
+    // Delete the invitation after declining
+    await deleteDoc(inviteRef);
   },
 
   // Delete (revoke) invitation

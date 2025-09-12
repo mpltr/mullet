@@ -3,7 +3,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { CogIcon, HomeIcon, BellIcon, QuestionMarkCircleIcon, ChevronDownIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Navigation } from "../Navigation";
 import { Input } from "../Input";
-import { useHomes, useHomeInvitations, useUserInvitations, useHomesWithMembers } from '../../hooks/useDatabase';
+import { ConfirmModal } from "../Modal";
+import { useHomes, useHomeInvitations, useEnrichedUserInvitations, useHomesWithMembers } from '../../hooks/useDatabase';
 import { homeService, homeInvitationService } from '../../lib/database';
 import { HomeTypeWithMembers } from '../../types/database';
 
@@ -20,6 +21,8 @@ interface HomeDetailsProps {
   onInviteEmailChange: (email: string) => void;
   onSendInvite: () => void;
   isSendingInvite: boolean;
+  onLeaveHome: () => void;
+  onDeleteHome: () => void;
 }
 
 const HomeDetails = memo(function HomeDetails({
@@ -30,7 +33,9 @@ const HomeDetails = memo(function HomeDetails({
   inviteEmail,
   onInviteEmailChange,
   onSendInvite,
-  isSendingInvite
+  isSendingInvite,
+  onLeaveHome,
+  onDeleteHome
 }: HomeDetailsProps) {
   const isOwner = home.createdBy === user?.uid;
   const isMember = home.members.some(member => member.uid === user?.uid);
@@ -168,6 +173,25 @@ const HomeDetails = memo(function HomeDetails({
               </div>
             </>
           )}
+          
+          {/* Leave/Delete Home Actions */}
+          <div className="mt-4 pt-3 border-t border-gray-100">
+            {isOwner ? (
+              <button
+                onClick={onDeleteHome}
+                className="w-full px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                Delete Home
+              </button>
+            ) : isMember ? (
+              <button
+                onClick={onLeaveHome}
+                className="w-full px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                Leave Home
+              </button>
+            ) : null}
+          </div>
         </div>
       )}
     </div>
@@ -183,8 +207,25 @@ export function ViewProfile(props: ViewProfileProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [inviteEmails, setInviteEmails] = useState<Record<string, string>>({});
   const [isSendingInvite, setIsSendingInvite] = useState<Record<string, boolean>>({});
+  
+  // Modal state for confirmations
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant: 'danger' | 'primary';
+    isLoading: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    variant: 'primary',
+    isLoading: false
+  });
   const { homes, loading: homesLoading } = useHomesWithMembers(user?.uid || '');
-  const { invitations: userInvitations, loading: invitationsLoading } = useUserInvitations(user?.email || '');
+  const { invitations: userInvitations, loading: invitationsLoading } = useEnrichedUserInvitations(user?.email || '');
 
   const handleCreateHome = async () => {
     if (!user?.uid || !homeName.trim()) return;
@@ -237,6 +278,63 @@ export function ViewProfile(props: ViewProfileProps) {
     setInviteEmails(prev => ({ ...prev, [homeId]: email }));
   }, []);
 
+  const openConfirmModal = useCallback((title: string, message: string, onConfirm: () => void, variant: 'danger' | 'primary' = 'primary') => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+      variant,
+      isLoading: false
+    });
+  }, []);
+
+  const closeConfirmModal = useCallback(() => {
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
+  }, []);
+
+  const handleLeaveHome = useCallback((homeId: string) => {
+    if (!user?.uid) return;
+    
+    openConfirmModal(
+      'Leave Home',
+      'Are you sure you want to leave this home? You will need a new invitation to rejoin.',
+      async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await homeService.removeMember(homeId, user.uid);
+          closeConfirmModal();
+        } catch (error: any) {
+          console.error('Error leaving home:', error);
+          // TODO: Show error message in a toast or error modal
+          closeConfirmModal();
+        }
+      },
+      'danger'
+    );
+  }, [user?.uid, openConfirmModal, closeConfirmModal]);
+
+  const handleDeleteHome = useCallback((homeId: string) => {
+    if (!user?.uid) return;
+    
+    openConfirmModal(
+      'Delete Home',
+      'Are you sure you want to delete this home? This action cannot be undone and will remove all associated rooms, tasks, and data.',
+      async () => {
+        setConfirmModal(prev => ({ ...prev, isLoading: true }));
+        try {
+          await homeService.delete(homeId, user.uid);
+          closeConfirmModal();
+        } catch (error: any) {
+          console.error('Error deleting home:', error);
+          // TODO: Show error message in a toast or error modal
+          closeConfirmModal();
+        }
+      },
+      'danger'
+    );
+  }, [user?.uid, openConfirmModal, closeConfirmModal]);
+
   return (
     <>
       <div className="min-h-screen bg-gray-50 pb-20">
@@ -267,23 +365,22 @@ export function ViewProfile(props: ViewProfileProps) {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                 <div className="p-4">
                   <h3 className="font-medium text-gray-900 mb-3">
-                    Pending Invitations ({userInvitations.length})
+                    Pending Home Invitations ({userInvitations.length})
                   </h3>
                   <div className="space-y-3">
                     {userInvitations.map((invitation) => {
-                      // Find the home this invitation is for
-                      const invitedHome = homes.find(home => home.id === invitation.homeId);
                       return (
-                        <div key={invitation.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {invitedHome ? `Invitation to "${invitedHome.name}"` : 'Home invitation'}
+                        <div key={invitation.id} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900 text-base">{invitation.homeName}</p>
+                            <p className="text-sm text-gray-600 mt-1">
+                              Owner: {invitation.inviterName}
                             </p>
-                            <p className="text-xs text-gray-500">
-                              From: {invitation.invitedBy === user?.uid ? 'You' : `User ${invitation.invitedBy.slice(-6)}`}
+                            <p className="text-xs text-gray-500 mt-1">
+                              {invitation.createdAt.toLocaleDateString()}
                             </p>
                           </div>
-                        <div className="flex space-x-2">
+                        <div className="flex space-x-2 ml-4">
                           <button
                             onClick={async () => {
                               try {
@@ -292,7 +389,7 @@ export function ViewProfile(props: ViewProfileProps) {
                                 console.error('Error accepting invite:', error);
                               }
                             }}
-                            className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                            className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-md hover:bg-green-200 transition-colors"
                           >
                             Accept
                           </button>
@@ -304,7 +401,7 @@ export function ViewProfile(props: ViewProfileProps) {
                                 console.error('Error declining invite:', error);
                               }
                             }}
-                            className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700"
+                            className="px-3 py-1 text-sm bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors"
                           >
                             Decline
                           </button>
@@ -368,6 +465,8 @@ export function ViewProfile(props: ViewProfileProps) {
                             onInviteEmailChange={(email) => handleInviteEmailChange(home.id, email)}
                             onSendInvite={() => handleSendInvite(home.id)}
                             isSendingInvite={isSendingInvite[home.id] || false}
+                            onLeaveHome={() => handleLeaveHome(home.id)}
+                            onDeleteHome={() => handleDeleteHome(home.id)}
                           />
                         ))}
                         <div className="pt-2 border-t border-gray-100">
@@ -425,6 +524,18 @@ export function ViewProfile(props: ViewProfileProps) {
         </div>
       </div>
       <Navigation />
+      
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeConfirmModal}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.title === 'Leave Home' ? 'Leave' : confirmModal.variant === 'danger' ? 'Delete' : 'Confirm'}
+        variant={confirmModal.variant}
+        isLoading={confirmModal.isLoading}
+      />
       
       {/* Create Home Modal */}
       {showCreateModal && (

@@ -5,10 +5,12 @@ import {
   where, 
   orderBy, 
   onSnapshot,
+  doc,
+  getDoc,
   Unsubscribe 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { HomeType, RoomType, TaskType, HomeInvitationType, HomeTypeWithMembers, HomeMember, COLLECTIONS } from '../types/database';
+import { HomeType, RoomType, TaskType, HomeInvitationType, HomeTypeWithMembers, HomeMember, EnrichedHomeInvitationType, COLLECTIONS } from '../types/database';
 import { userService } from '../lib/database';
 import { useUsers } from '../contexts/UserContext';
 
@@ -400,4 +402,85 @@ export function useHomesWithMembers(userId: string) {
   }, [homes, homesLoading, homesError, getUsersByIds]);
 
   return { homes: homesWithMembers, loading, error };
+}
+
+// Hook for enriched user invitations with home names and inviter names
+export function useEnrichedUserInvitations(userEmail: string) {
+  const [enrichedInvitations, setEnrichedInvitations] = useState<EnrichedHomeInvitationType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Use existing hooks
+  const { invitations, loading: invitationsLoading, error: invitationsError } = useUserInvitations(userEmail);
+  const { getUsersByIds } = useUsers();
+
+  useEffect(() => {
+    if (invitationsLoading) {
+      setLoading(true);
+      return;
+    }
+
+    if (invitationsError) {
+      setError(invitationsError);
+      setLoading(false);
+      return;
+    }
+
+    if (invitations.length === 0) {
+      setEnrichedInvitations([]);
+      setLoading(false);
+      return;
+    }
+
+    // Get all unique home IDs and inviter user IDs
+    const homeIds = [...new Set(invitations.map(inv => inv.homeId))];
+    const inviterIds = [...new Set(invitations.map(inv => inv.invitedBy))];
+
+    // Fetch home data and user data in parallel
+    Promise.all([
+      // Fetch homes
+      Promise.all(homeIds.map(async homeId => {
+        try {
+          const homeDoc = await getDoc(doc(db, COLLECTIONS.HOMES, homeId));
+          if (homeDoc.exists()) {
+            return { id: homeDoc.id, ...convertTimestamps(homeDoc.data()) } as HomeType;
+          }
+          return null;
+        } catch (error) {
+          console.error('Error fetching home:', error);
+          return null;
+        }
+      })),
+      // Fetch inviters
+      getUsersByIds(inviterIds)
+    ])
+      .then(([homes, inviters]) => {
+        // Create lookup maps
+        const homeLookup = new Map(homes.filter(Boolean).map(home => [home!.id, home!]));
+        const inviterLookup = new Map(inviters.map(user => [user.id, user]));
+        
+        // Enrich invitations
+        const enriched: EnrichedHomeInvitationType[] = invitations.map(invitation => {
+          const home = homeLookup.get(invitation.homeId);
+          const inviter = inviterLookup.get(invitation.invitedBy);
+          
+          return {
+            ...invitation,
+            homeName: home?.name || 'Unknown Home',
+            inviterName: inviter?.name || inviter?.email || 'Unknown User'
+          };
+        });
+        
+        setEnrichedInvitations(enriched);
+        setLoading(false);
+        setError(null);
+      })
+      .catch(err => {
+        console.error('Error enriching invitations:', err);
+        setError(err.message);
+        setLoading(false);
+      });
+  }, [invitations, invitationsLoading, invitationsError, getUsersByIds]);
+
+  return { invitations: enrichedInvitations, loading, error };
 }
