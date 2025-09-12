@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import {
   User,
   signInWithPopup,
@@ -11,7 +12,7 @@ import { userService } from '../lib/database';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  loginWithGoogle: () => Promise<void>;
+  loginWithGoogle: (redirectTo?: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -32,6 +33,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -59,8 +61,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return unsubscribe;
   }, []);
 
-  const loginWithGoogle = async (): Promise<void> => {
+  const loginWithGoogle = async (redirectTo: string = '/rooms'): Promise<void> => {
     await signInWithPopup(auth, googleProvider);
+    router.push(redirectTo);
   };
 
   const logout = async (): Promise<void> => {
