@@ -7,6 +7,7 @@ import {
   setDoc,
   updateDoc, 
   deleteDoc, 
+  deleteField,
   query, 
   where, 
   orderBy, 
@@ -15,7 +16,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { HomeType, RoomType, TaskType, UserType, HomeInvitationType, COLLECTIONS } from '../types/database';
+import { HomeType, RoomType, TaskType, UserType, HomeInvitationType, GroupType, HabitType, TaskCompletionType, HabitCompletionType, COLLECTIONS } from '../types/database';
 
 // Utility function to convert Firestore Timestamp to Date
 const convertTimestamps = (data: any): any => {
@@ -244,6 +245,13 @@ export const roomService = {
   }
 };
 
+// Helper function to calculate next scheduled date for recurring tasks
+function calculateNextScheduledDate(currentDueDate: Date, recurrenceDays: number): Date {
+  // Simply add the recurrence days to the current due date
+  const nextScheduledDate = new Date(currentDueDate.getTime() + (recurrenceDays * 24 * 60 * 60 * 1000));
+  return nextScheduledDate;
+}
+
 // Task CRUD Operations
 export const taskService = {
   // Create a new task
@@ -251,26 +259,33 @@ export const taskService = {
     homeId: string, 
     title: string, 
     createdBy: string,
-    authorizedUsers: string[],
     options?: {
       description?: string;
       roomId?: string;
+      groupId?: string;
       assignedTo?: string;
       dueDate?: Date;
+      recurrenceDays?: number;
     }
   ): Promise<string> {
-    const taskData = {
+    const taskData: any = {
       title,
-      description: options?.description,
       status: 'pending' as const,
       homeId,
-      roomId: options?.roomId,
-      assignedTo: options?.assignedTo,
       createdBy,
       createdAt: serverTimestamp(),
       dueDate: options?.dueDate ? Timestamp.fromDate(options.dueDate) : null,
-      authorizedUsers
+      nextDueDate: options?.recurrenceDays && options?.dueDate 
+        ? Timestamp.fromDate(new Date(options.dueDate.getTime() + options.recurrenceDays * 24 * 60 * 60 * 1000))
+        : null
     };
+
+    // Only add optional fields if they have values
+    if (options?.description) taskData.description = options.description;
+    if (options?.roomId) taskData.roomId = options.roomId;
+    if (options?.groupId) taskData.groupId = options.groupId;
+    if (options?.assignedTo) taskData.assignedTo = options.assignedTo;
+    if (options?.recurrenceDays) taskData.recurrenceDays = options.recurrenceDays;
     
     const docRef = await addDoc(collection(db, COLLECTIONS.TASKS), taskData);
     return docRef.id;
@@ -278,9 +293,291 @@ export const taskService = {
 
   // Get tasks for a user (across all their homes)
   async getByUser(userId: string): Promise<TaskType[]> {
+    // First, get all homes where user is a member
+    const homesQuery = query(
+      collection(db, COLLECTIONS.HOMES),
+      where('members', 'array-contains', userId)
+    );
+    
+    const homesSnapshot = await getDocs(homesQuery);
+    const homeIds = homesSnapshot.docs.map(doc => doc.id);
+    
+    if (homeIds.length === 0) {
+      return [];
+    }
+    
+    // Then get all tasks from those homes
+    const tasksQuery = query(
+      collection(db, COLLECTIONS.TASKS),
+      where('homeId', 'in', homeIds),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(tasksQuery);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...convertTimestamps(doc.data())
+    })) as TaskType[];
+  },
+
+  // Update a task
+  async update(
+    taskId: string,
+    updates: {
+      title?: string;
+      description?: string;
+      roomId?: string;
+      groupId?: string;
+      assignedTo?: string;
+      dueDate?: Date;
+      recurrenceDays?: number;
+    }
+  ): Promise<void> {
+    const updateData: any = {};
+    
+    // Only add fields that are being updated
+    if (updates.title !== undefined) updateData.title = updates.title;
+    if (updates.description !== undefined) {
+      if (updates.description.trim()) {
+        updateData.description = updates.description;
+      } else {
+        updateData.description = deleteField();
+      }
+    }
+    if (updates.roomId !== undefined) {
+      if (updates.roomId) {
+        updateData.roomId = updates.roomId;
+      } else {
+        updateData.roomId = deleteField();
+      }
+    }
+    if (updates.groupId !== undefined) {
+      if (updates.groupId) {
+        updateData.groupId = updates.groupId;
+      } else {
+        updateData.groupId = deleteField();
+      }
+    }
+    if (updates.assignedTo !== undefined) {
+      if (updates.assignedTo) {
+        updateData.assignedTo = updates.assignedTo;
+      } else {
+        updateData.assignedTo = deleteField();
+      }
+    }
+    if (updates.dueDate !== undefined) {
+      if (updates.dueDate) {
+        updateData.dueDate = Timestamp.fromDate(updates.dueDate);
+      } else {
+        updateData.dueDate = deleteField();
+        updateData.nextDueDate = deleteField();
+      }
+    }
+    if (updates.recurrenceDays !== undefined) {
+      if (updates.recurrenceDays) {
+        updateData.recurrenceDays = updates.recurrenceDays;
+        // Update nextDueDate if dueDate exists
+        const currentTask = await getDoc(doc(db, COLLECTIONS.TASKS, taskId));
+        if (currentTask.exists()) {
+          const taskData = currentTask.data();
+          const dueDate = updates.dueDate || (taskData.dueDate ? taskData.dueDate.toDate() : null);
+          if (dueDate) {
+            updateData.nextDueDate = Timestamp.fromDate(
+              new Date(dueDate.getTime() + updates.recurrenceDays * 24 * 60 * 60 * 1000)
+            );
+          }
+        }
+      } else {
+        updateData.recurrenceDays = deleteField();
+        updateData.nextDueDate = deleteField();
+      }
+    }
+    
+    await updateDoc(doc(db, COLLECTIONS.TASKS, taskId), updateData);
+  },
+
+  // Update task status
+  async updateStatus(taskId: string, status: TaskType['status'], completedBy?: string): Promise<void> {
+    const taskRef = doc(db, COLLECTIONS.TASKS, taskId);
+    
+    // Get current task data to check for recurrence
+    const taskDoc = await getDoc(taskRef);
+    if (!taskDoc.exists()) {
+      throw new Error('Task not found');
+    }
+    
+    const taskData = { id: taskDoc.id, ...convertTimestamps(taskDoc.data()) } as TaskType;
+    
+    if (status === 'completed') {
+      // Record completion history
+      // TODO: Re-enable after discussing completion tracking nuances
+      // if (completedBy) {
+      //   await addDoc(collection(db, COLLECTIONS.TASK_COMPLETIONS), {
+      //     taskId,
+      //     completedBy,
+      //     completedAt: serverTimestamp(),
+      //     homeId: taskData.homeId
+      //   });
+      // }
+      
+      // Handle recurring tasks
+      if (taskData.recurrenceDays && taskData.dueDate) {
+        // Calculate next scheduled date using smart scheduling
+        const nextScheduledDate = calculateNextScheduledDate(taskData.dueDate, taskData.recurrenceDays);
+        
+        await updateDoc(taskRef, {
+          status: 'completed',
+          completedAt: serverTimestamp(),
+          dueDate: Timestamp.fromDate(nextScheduledDate)
+        });
+      } else {
+        // Non-recurring task - just mark as completed
+        await updateDoc(taskRef, {
+          status: 'completed',
+          completedAt: serverTimestamp()
+        });
+      }
+    } else {
+      // Status change other than completion
+      await updateDoc(taskRef, { status });
+    }
+  },
+
+  // Get task completions history
+  // TODO: Re-enable after discussing completion tracking nuances
+  // async getCompletions(taskId: string): Promise<TaskCompletionType[]> {
+  //   const q = query(
+  //     collection(db, COLLECTIONS.TASK_COMPLETIONS),
+  //     where('taskId', '==', taskId),
+  //     orderBy('completedAt', 'desc')
+  //   );
+  //   
+  //   const querySnapshot = await getDocs(q);
+  //   return querySnapshot.docs.map(doc => ({
+  //     id: doc.id,
+  //     ...convertTimestamps(doc.data())
+  //   })) as TaskCompletionType[];
+  // },
+
+  // Delete a task
+  async delete(taskId: string): Promise<void> {
+    await deleteDoc(doc(db, COLLECTIONS.TASKS, taskId));
+    
+    // Also delete associated completion history
+    // TODO: Re-enable after discussing completion tracking nuances
+    // const completionsQuery = query(
+    //   collection(db, COLLECTIONS.TASK_COMPLETIONS),
+    //   where('taskId', '==', taskId)
+    // );
+    // const completionsSnapshot = await getDocs(completionsQuery);
+    // const deletePromises = completionsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    // await Promise.all(deletePromises);
+  },
+
+  // Daily schedule check - auto-uncheck completed recurring tasks that are due
+  async performDailyScheduleCheck(homeIds: string[]): Promise<void> {
+    if (homeIds.length === 0) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Query for completed recurring tasks in user's homes
     const q = query(
       collection(db, COLLECTIONS.TASKS),
-      where('authorizedUsers', 'array-contains', userId),
+      where('homeId', 'in', homeIds),
+      where('status', '==', 'completed')
+    );
+
+    const querySnapshot = await getDocs(q);
+    const updates: Promise<void>[] = [];
+
+    querySnapshot.forEach((doc) => {
+      const task = { id: doc.id, ...convertTimestamps(doc.data()) } as TaskType;
+      
+      // Check if this is a recurring task that's due for re-activation
+      if (task.recurrenceDays && task.dueDate) {
+        const taskDueDate = new Date(task.dueDate);
+        taskDueDate.setHours(0, 0, 0, 0);
+        
+        // If the scheduled date has arrived, reactivate the task
+        if (taskDueDate.getTime() <= today.getTime()) {
+          updates.push(
+            updateDoc(doc.ref, {
+              status: 'pending'
+            })
+          );
+        }
+      }
+    });
+
+    // Execute all updates in parallel
+    await Promise.all(updates);
+  }
+};
+
+// Habit CRUD Operations
+export const habitService = {
+  // Create a new habit
+  async create(
+    homeId: string,
+    title: string,
+    createdBy: string,
+    options?: {
+      description?: string;
+      roomId?: string;
+      groupId?: string;
+    }
+  ): Promise<string> {
+    const habitData: any = {
+      title,
+      homeId,
+      createdBy,
+      createdAt: serverTimestamp()
+    };
+
+    // Only add optional fields if they have values
+    if (options?.description) habitData.description = options.description;
+    if (options?.roomId) habitData.roomId = options.roomId;
+    if (options?.groupId) habitData.groupId = options.groupId;
+    
+    const docRef = await addDoc(collection(db, COLLECTIONS.HABITS), habitData);
+    return docRef.id;
+  },
+
+  // Get habits for a user (across all their homes)
+  async getByUser(userId: string): Promise<HabitType[]> {
+    // First, get all homes where user is a member
+    const homesQuery = query(
+      collection(db, COLLECTIONS.HOMES),
+      where('members', 'array-contains', userId)
+    );
+    
+    const homesSnapshot = await getDocs(homesQuery);
+    const homeIds = homesSnapshot.docs.map(doc => doc.id);
+    
+    if (homeIds.length === 0) {
+      return [];
+    }
+    
+    // Then get all habits from those homes
+    const habitsQuery = query(
+      collection(db, COLLECTIONS.HABITS),
+      where('homeId', 'in', homeIds),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(habitsQuery);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...convertTimestamps(doc.data())
+    })) as HabitType[];
+  },
+
+  // Get habits for a specific home
+  async getByHome(homeId: string): Promise<HabitType[]> {
+    const q = query(
+      collection(db, COLLECTIONS.HABITS),
+      where('homeId', '==', homeId),
       orderBy('createdAt', 'desc')
     );
     
@@ -288,19 +585,165 @@ export const taskService = {
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...convertTimestamps(doc.data())
-    })) as TaskType[];
+    })) as HabitType[];
   },
 
-  // Update task status
-  async updateStatus(taskId: string, status: TaskType['status']): Promise<void> {
-    const taskRef = doc(db, COLLECTIONS.TASKS, taskId);
-    const updateData: any = { status };
+  // Complete a habit (add completion record)
+  async complete(habitId: string, completedBy: string): Promise<string> {
+    // Get habit data to include homeId
+    const habitRef = doc(db, COLLECTIONS.HABITS, habitId);
+    const habitDoc = await getDoc(habitRef);
     
-    if (status === 'completed') {
-      updateData.completedAt = serverTimestamp();
+    if (!habitDoc.exists()) {
+      throw new Error('Habit not found');
     }
     
-    await updateDoc(taskRef, updateData);
+    const habitData = habitDoc.data() as HabitType;
+    
+    // Add completion record
+    const completionData = {
+      habitId,
+      completedBy,
+      completedAt: serverTimestamp(),
+      homeId: habitData.homeId
+    };
+    
+    const docRef = await addDoc(collection(db, COLLECTIONS.HABIT_COMPLETIONS), completionData);
+    return docRef.id;
+  },
+
+  // Get habit completions history
+  async getCompletions(habitId: string): Promise<HabitCompletionType[]> {
+    const q = query(
+      collection(db, COLLECTIONS.HABIT_COMPLETIONS),
+      where('habitId', '==', habitId),
+      orderBy('completedAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...convertTimestamps(doc.data())
+    })) as HabitCompletionType[];
+  },
+
+  // Get last completion for a habit
+  async getLastCompletion(habitId: string): Promise<HabitCompletionType | null> {
+    const q = query(
+      collection(db, COLLECTIONS.HABIT_COMPLETIONS),
+      where('habitId', '==', habitId),
+      orderBy('completedAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) return null;
+    
+    const lastCompletion = querySnapshot.docs[0];
+    return {
+      id: lastCompletion.id,
+      ...convertTimestamps(lastCompletion.data())
+    } as HabitCompletionType;
+  },
+
+  // Update habit details
+  async update(
+    habitId: string,
+    updates: {
+      title?: string;
+      description?: string;
+      roomId?: string;
+      groupId?: string;
+    }
+  ): Promise<void> {
+    const habitRef = doc(db, COLLECTIONS.HABITS, habitId);
+    await updateDoc(habitRef, updates);
+  },
+
+  // Delete a habit
+  async delete(habitId: string): Promise<void> {
+    await deleteDoc(doc(db, COLLECTIONS.HABITS, habitId));
+    
+    // Also delete associated completion history
+    const completionsQuery = query(
+      collection(db, COLLECTIONS.HABIT_COMPLETIONS),
+      where('habitId', '==', habitId)
+    );
+    const completionsSnapshot = await getDocs(completionsQuery);
+    const deletePromises = completionsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+  }
+};
+
+// Group CRUD Operations
+export const groupService = {
+  // Create a new group
+  async create(homeId: string, name: string, createdBy: string): Promise<string> {
+    const groupData = {
+      name,
+      homeId,
+      createdBy,
+      createdAt: serverTimestamp()
+    };
+    
+    const docRef = await addDoc(collection(db, COLLECTIONS.GROUPS), groupData);
+    return docRef.id;
+  },
+
+  // Get groups for a specific home
+  async getByHome(homeId: string): Promise<GroupType[]> {
+    const q = query(
+      collection(db, COLLECTIONS.GROUPS),
+      where('homeId', '==', homeId),
+      orderBy('name', 'asc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...convertTimestamps(doc.data())
+    })) as GroupType[];
+  },
+
+  // Get a single group by ID
+  async getById(groupId: string): Promise<GroupType | null> {
+    const docRef = doc(db, COLLECTIONS.GROUPS, groupId);
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) return null;
+    
+    return {
+      id: docSnap.id,
+      ...convertTimestamps(docSnap.data())
+    } as GroupType;
+  },
+
+  // Update group name
+  async update(groupId: string, updates: { name?: string }): Promise<void> {
+    const groupRef = doc(db, COLLECTIONS.GROUPS, groupId);
+    await updateDoc(groupRef, updates);
+  },
+
+  // Delete a group (orphaned task references handled in frontend)
+  async delete(groupId: string): Promise<void> {
+    await deleteDoc(doc(db, COLLECTIONS.GROUPS, groupId));
+  },
+
+  // Check if group name already exists in home (for validation)
+  async nameExists(homeId: string, name: string, excludeId?: string): Promise<boolean> {
+    const q = query(
+      collection(db, COLLECTIONS.GROUPS),
+      where('homeId', '==', homeId),
+      where('name', '==', name)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    if (excludeId) {
+      // Filter out the group being updated
+      return querySnapshot.docs.some(doc => doc.id !== excludeId);
+    }
+    
+    return !querySnapshot.empty;
   }
 };
 

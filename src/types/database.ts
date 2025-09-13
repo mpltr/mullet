@@ -34,11 +34,48 @@ export interface TaskType {
   dueDate?: Date;
   homeId: string;
   roomId?: string; // optional - tasks can belong to home or specific room
+  groupId?: string; // optional - tasks can belong to a group
   assignedTo?: string; // userId
   createdBy: string; // userId
   createdAt: Date;
   completedAt?: Date;
-  authorizedUsers: string[]; // userIds - for efficient user-specific queries
+  recurrenceDays?: number; // optional - number of days for recurrence
+  nextDueDate?: Date; // for recurring tasks, the next scheduled due date
+}
+
+export interface GroupType {
+  id: string;
+  name: string;
+  homeId: string;
+  createdBy: string; // userId
+  createdAt: Date;
+}
+
+export interface HabitType {
+  id: string;
+  title: string;
+  description?: string;
+  homeId: string;
+  roomId?: string; // optional - habits can belong to home or specific room
+  groupId?: string; // optional - habits can belong to a group
+  createdBy: string; // userId
+  createdAt: Date;
+}
+
+export interface TaskCompletionType {
+  id: string;
+  taskId: string;
+  completedBy: string; // userId
+  completedAt: Date;
+  homeId: string; // for efficient querying
+}
+
+export interface HabitCompletionType {
+  id: string;
+  habitId: string;
+  completedBy: string; // userId
+  completedAt: Date;
+  homeId: string; // for efficient querying
 }
 
 export interface UserType {
@@ -70,6 +107,10 @@ export const COLLECTIONS = {
   HOMES: 'homes',
   ROOMS: 'rooms',
   TASKS: 'tasks',
+  HABITS: 'habits',
+  GROUPS: 'groups',
+  TASK_COMPLETIONS: 'task_completions',
+  HABIT_COMPLETIONS: 'habit_completions',
   USERS: 'users',
   HOME_INVITATIONS: 'home_invitations'
 } as const;
