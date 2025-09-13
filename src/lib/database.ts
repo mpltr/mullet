@@ -158,32 +158,89 @@ export const homeService = {
 
 // Room CRUD Operations
 export const roomService = {
+  // Helper function to generate random Tailwind color
+  getRandomColor(): string {
+    const colors = [
+      'red-200', 'orange-200', 'amber-200', 'yellow-200', 'lime-200', 'green-200',
+      'emerald-200', 'teal-200', 'cyan-200', 'sky-200', 'blue-200', 'indigo-200',
+      'violet-200', 'purple-200', 'fuchsia-200', 'pink-200', 'rose-200'
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+  },
+
+  // Get a unique color that isn't already used in the home
+  getUniqueColor(usedColors: string[]): string {
+    const allColors = [
+      'red-200', 'orange-200', 'amber-200', 'yellow-200', 'lime-200', 'green-200',
+      'emerald-200', 'teal-200', 'cyan-200', 'sky-200', 'blue-200', 'indigo-200',
+      'violet-200', 'purple-200', 'fuchsia-200', 'pink-200', 'rose-200'
+    ];
+    
+    // Filter out already used colors
+    const availableColors = allColors.filter(color => !usedColors.includes(color));
+    
+    // If all colors are used, fall back to random (unlikely with 17 colors)
+    if (availableColors.length === 0) {
+      return this.getRandomColor();
+    }
+    
+    // Return a random color from available colors
+    return availableColors[Math.floor(Math.random() * availableColors.length)];
+  },
+
   // Create a new room
-  async create(homeId: string, name: string, authorizedUsers: string[]): Promise<string> {
+  async create(homeId: string, name: string): Promise<string> {
+    // Get existing rooms for this home to avoid duplicate colors
+    const existingRooms = await this.getByHome(homeId);
+    const usedColors = existingRooms.map(room => room.color);
+    
+    // Get a unique color for this home
+    const color = this.getUniqueColor(usedColors);
+    
     const roomData = {
       name,
       homeId,
-      createdAt: serverTimestamp(),
-      authorizedUsers
+      color,
+      createdAt: serverTimestamp()
     };
     
     const docRef = await addDoc(collection(db, COLLECTIONS.ROOMS), roomData);
     return docRef.id;
   },
 
-  // Get rooms for a home
+  // Create a new room with a specific color
+  async createWithColor(homeId: string, name: string, color: string): Promise<string> {
+    const roomData = {
+      name,
+      homeId,
+      color,
+      createdAt: serverTimestamp()
+    };
+    
+    const docRef = await addDoc(collection(db, COLLECTIONS.ROOMS), roomData);
+    return docRef.id;
+  },
+
+  // Get rooms for a home (sorted alphabetically)
   async getByHome(homeId: string): Promise<RoomType[]> {
     const q = query(
       collection(db, COLLECTIONS.ROOMS),
-      where('homeId', '==', homeId),
-      orderBy('createdAt', 'asc')
+      where('homeId', '==', homeId)
     );
     
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
+    const rooms = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...convertTimestamps(doc.data())
     })) as RoomType[];
+    
+    // Sort alphabetically by name
+    return rooms.sort((a, b) => a.name.localeCompare(b.name));
+  },
+
+  // Delete a room
+  async delete(roomId: string): Promise<void> {
+    await deleteDoc(doc(db, COLLECTIONS.ROOMS, roomId));
   }
 };
 

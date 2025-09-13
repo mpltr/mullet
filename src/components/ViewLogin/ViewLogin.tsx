@@ -14,7 +14,7 @@ export function ViewLogin(props: ViewLoginProps) {
 
   useEffect(() => {
     if (user) {
-      router.push('/');
+      router.push('/rooms');
     }
   }, [user, router]);
 
@@ -28,7 +28,7 @@ export function ViewLogin(props: ViewLoginProps) {
 
     try {
       await loginWithGoogle();
-      router.push('/');
+      router.push('/rooms');
     } catch (error: any) {
       setError(error.message || 'Failed to login with Google');
     } finally {

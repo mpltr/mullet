@@ -59,17 +59,17 @@ service cloud.firestore {
 
     // Rooms collection
     match /rooms/{roomId} {
-      // Users can read rooms if they're authorized
+      // Users can read rooms if they're a member of the home that owns the room
       allow read: if isAuthenticated() && 
-                     request.auth.uid in resource.data.authorizedUsers;
+                     request.auth.uid in get(/databases/$(database)/documents/homes/$(resource.data.homeId)).data.members;
       
-      // Users can create rooms if they're authorized (assumes proper authorization setup)
+      // Users can create rooms if they're a member of the home
       allow create: if isAuthenticated() && 
-                       request.auth.uid in request.resource.data.authorizedUsers;
+                       request.auth.uid in get(/databases/$(database)/documents/homes/$(request.resource.data.homeId)).data.members;
       
-      // Users can update/delete rooms if they're authorized
+      // Users can update/delete rooms if they're a member of the home
       allow update, delete: if isAuthenticated() && 
-                               isAuthorizedUser(resource.data.authorizedUsers);
+                               request.auth.uid in get(/databases/$(database)/documents/homes/$(resource.data.homeId)).data.members;
     }
 
     // Tasks collection

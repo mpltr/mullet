@@ -122,8 +122,7 @@ export function useRooms(homeId: string) {
     
     const q = query(
       collection(db, COLLECTIONS.ROOMS),
-      where('homeId', '==', homeId),
-      orderBy('createdAt', 'asc')
+      where('homeId', '==', homeId)
     );
 
     const unsubscribe: Unsubscribe = onSnapshot(
@@ -136,6 +135,10 @@ export function useRooms(homeId: string) {
             ...convertTimestamps(doc.data())
           } as RoomType);
         });
+        
+        // Sort alphabetically by name
+        roomsData.sort((a, b) => a.name.localeCompare(b.name));
+        
         setRooms(roomsData);
         setLoading(false);
         setError(null);

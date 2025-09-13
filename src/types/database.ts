@@ -23,7 +23,7 @@ export interface RoomType {
   name: string;
   homeId: string;
   createdAt: Date;
-  authorizedUsers: string[]; // userIds - inherited from home members
+  color: string; // Tailwind color class (e.g., 'blue-300', 'green-300')
 }
 
 export interface TaskType {
