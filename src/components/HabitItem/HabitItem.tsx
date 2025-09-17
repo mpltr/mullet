@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { TrashIcon, CheckIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, CheckIcon, PencilIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { HabitType, HabitCompletionType } from '../../types/database';
 import { habitService } from '../../lib/database';
-import { useLastHabitCompletion } from '../../hooks/useDatabase';
+import { useLastHabitCompletion, useRooms } from '../../hooks/useDatabase';
+import { useUser } from '../../contexts/UserContext';
+import { Modal } from '../Modal';
+import { HabitForm } from '../HabitForm';
 
 export interface HabitItemProps {
   habit: HabitType;
@@ -18,11 +21,15 @@ export function HabitItem({
   userId, 
   roomName, 
   groupName, 
-  onDelete, 
+  onDelete,
   showRoomTag = false 
 }: HabitItemProps) {
   const [isCompleting, setIsCompleting] = useState(false);
-  const { lastCompletion, loading: completionLoading } = useLastHabitCompletion(habit.id);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const { lastCompletion, loading: completionLoading } = useLastHabitCompletion(habit.id, habit.homeId);
+  const lastCompletedByUser = useUser(lastCompletion?.completedBy || null);
+  const { rooms } = useRooms(habit.homeId);
   
   const canDelete = habit.createdBy === userId;
   
@@ -45,111 +52,182 @@ export function HabitItem({
     }
   };
 
+  const handleEdit = () => {
+    setShowEditModal(true);
+  };
+
   const formatLastCompletion = (completion: HabitCompletionType) => {
     const now = new Date();
     const completionDate = new Date(completion.completedAt);
-    const diffHours = Math.floor((now.getTime() - completionDate.getTime()) / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffHours / 24);
+    const today = new Date().setHours(0, 0, 0, 0);
+    const completionDay = new Date(completion.completedAt).setHours(0, 0, 0, 0);
+    const diffDays = Math.floor((today - completionDay) / (1000 * 60 * 60 * 24));
     
     let timeText;
-    if (diffHours < 1) {
-      timeText = 'Just now';
-    } else if (diffHours < 24) {
-      timeText = `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    if (diffDays === 0) {
+      timeText = 'Today';
     } else if (diffDays === 1) {
       timeText = 'Yesterday';
-    } else if (diffDays < 7) {
-      timeText = `${diffDays} days ago`;
     } else {
-      timeText = completionDate.toLocaleDateString();
+      timeText = `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
     }
     
-    return timeText;
+    const userName = lastCompletedByUser?.name || lastCompletedByUser?.email || completion.completedBy;
+    return `${timeText} by ${userName}`;
   };
 
   return (
-    <div className="group flex items-center space-x-3 p-3 rounded-lg border bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200 hover:border-purple-300 transition-all">
-      {/* Complete Button */}
-      <button
-        onClick={handleComplete}
-        disabled={isCompleting}
-        className={`
-          flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-md transition-all
-          ${isCompleting
-            ? 'bg-gray-300 text-gray-500 cursor-wait'
-            : 'bg-purple-600 hover:bg-purple-700 text-white'
-          }
-        `}
+    <>
+    <div className="group rounded-lg border bg-gradient-to-r from-purple-100 to-indigo-100 border-purple-300 hover:border-purple-400 transition-all">
+      {/* Collapsed View - Always Visible */}
+      <div 
+        className="flex items-center space-x-3 p-3 cursor-pointer"
+        onClick={() => setIsExpanded(!isExpanded)}
       >
-        {isCompleting ? (
-          'Adding...'
-        ) : (
-          <span className="flex items-center space-x-1">
-            <CheckIcon className="w-3 h-3" />
-            <span>Done</span>
-          </span>
-        )}
-      </button>
+        {/* Complete Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleComplete();
+          }}
+          disabled={isCompleting}
+          className={`
+            flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-md transition-all
+            ${isCompleting
+              ? 'bg-gray-300 text-gray-500 cursor-wait'
+              : 'bg-purple-600 hover:bg-purple-700 text-white'
+            }
+          `}
+        >
+          {isCompleting ? (
+            'Adding...'
+          ) : (
+            <span className="flex items-center space-x-1">
+              <CheckIcon className="w-3 h-3" />
+              <span>Done</span>
+            </span>
+          )}
+        </button>
 
-      {/* Habit Content */}
-      <div className="flex-grow min-w-0">
-        <div className="flex items-start justify-between">
-          <div className="flex-grow min-w-0">
-            {/* Title */}
-            <h3 className="font-medium text-sm text-gray-900">
-              {habit.title}
-            </h3>
-            
-            {/* Description */}
-            {habit.description && (
-              <p className="text-xs text-gray-600 mt-1">
-                {habit.description}
-              </p>
+        {/* Title and Completion Status */}
+        <div className="flex-grow min-w-0">
+          <h3 className="font-medium text-sm text-gray-900">
+            {habit.title}
+          </h3>
+          
+          {/* Last Completion - Always Visible */}
+          <div className="mt-1">
+            {!completionLoading && lastCompletion && (
+              <div className="text-xs text-purple-800 bg-purple-200 px-2 py-1 rounded-md inline-block">
+                Last: {formatLastCompletion(lastCompletion)}
+              </div>
             )}
             
-            {/* Meta Info */}
-            <div className="flex items-center space-x-2 mt-2">
-              {/* Room Tag */}
-              {showRoomTag && roomName && (
-                <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-md">
-                  {roomName}
-                </span>
-              )}
-              
-              {/* Last Completion */}
-              {!completionLoading && lastCompletion && (
-                <span className="text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded-md">
-                  Last: {formatLastCompletion(lastCompletion)}
-                </span>
-              )}
-              
-              {/* Never completed indicator */}
-              {!completionLoading && !lastCompletion && (
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
-                  Never completed
-                </span>
-              )}
-              
-              {/* Loading state */}
-              {completionLoading && (
-                <span className="text-xs text-gray-400">
-                  Loading...
-                </span>
-              )}
-            </div>
+            {!completionLoading && !lastCompletion && (
+              <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md inline-block">
+                Never completed
+              </div>
+            )}
+            
+            {completionLoading && (
+              <span className="text-xs text-gray-400">
+                Loading...
+              </span>
+            )}
           </div>
+        </div>
+
+        {/* Tags - Always Visible */}
+        <div className="flex items-center space-x-2">
+          {/* Group Tag */}
+          {groupName && (
+            <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-md">
+              {groupName}
+            </span>
+          )}
           
-          {/* Delete Button */}
-          {canDelete && (
-            <button
-              onClick={handleDelete}
-              className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 transition-all"
-            >
-              <TrashIcon className="w-4 h-4" />
-            </button>
+          {/* Room Tag */}
+          {showRoomTag && roomName && (
+            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-md">
+              {roomName}
+            </span>
+          )}
+        </div>
+
+        {/* Expand/Collapse Indicator */}
+        <div className="flex-shrink-0 p-1 text-gray-400">
+          {isExpanded ? (
+            <ChevronDownIcon className="w-4 h-4" />
+          ) : (
+            <ChevronRightIcon className="w-4 h-4" />
           )}
         </div>
       </div>
+
+      {/* Expanded View - Only Visible When Expanded */}
+      {isExpanded && (
+        <div className="px-3 pb-3">
+          <div className="flex items-end justify-between ml-8">
+            {/* Description */}
+            <div className="flex-grow min-w-0">
+              {habit.description && (
+                <p className="text-xs text-gray-600">
+                  {habit.description}
+                </p>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-1 ml-4">
+              {/* Edit Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit();
+                }}
+                className="p-1 text-gray-400 hover:text-purple-600 transition-all"
+                title="Edit habit"
+              >
+                <PencilIcon className="w-4 h-4" />
+                <span className="sr-only">Edit</span>
+              </button>
+              
+              {/* Delete Button */}
+              {canDelete && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete();
+                  }}
+                  className="p-1 text-gray-400 hover:text-red-600 transition-all"
+                  title="Delete habit"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                  <span className="sr-only">Delete</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+    
+    {/* Edit Modal */}
+    <Modal
+      isOpen={showEditModal}
+      onClose={() => setShowEditModal(false)}
+      title="Edit Habit"
+      size="md"
+    >
+      <HabitForm
+        homeId={habit.homeId}
+        userId={userId}
+        rooms={rooms}
+        habit={habit}
+        onSave={() => setShowEditModal(false)}
+        onCancel={() => setShowEditModal(false)}
+      />
+    </Modal>
+  </>
   );
 }

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { CheckIcon, TrashIcon, ClockIcon, ArrowPathIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { CheckIcon, TrashIcon, ClockIcon, ArrowPathIcon, PencilIcon, ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { CheckIcon as CheckIconSolid } from '@heroicons/react/24/solid';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { TaskType } from '../../types/database';
 import { taskService } from '../../lib/database';
+import { useUser } from '../../contexts/UserContext';
 
 dayjs.extend(relativeTime);
 
@@ -28,9 +29,13 @@ export function TaskItem({
   showRoomTag = false 
 }: TaskItemProps) {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   
   const isCompleted = task.status === 'completed';
   const canDelete = task.createdBy === userId;
+  
+  // Get the user who last completed the task
+  const lastCompletedByUser = useUser(task.lastCompletedBy || null);
   
   const handleToggleComplete = async () => {
     if (isUpdating) return;
@@ -68,145 +73,207 @@ export function TaskItem({
     return `Due ${dueDate.format('MMM D')}`;
   };
 
+  const formatNextScheduled = (date: Date) => {
+    const dueDate = dayjs(date);
+    const today = dayjs().startOf('day');
+    const dueDateStart = dueDate.startOf('day');
+    
+    const diffDays = dueDateStart.diff(today, 'day');
+    
+    if (diffDays === 0) return 'Next scheduled today';
+    if (diffDays === 1) return 'Next scheduled tomorrow';
+    if (diffDays === -1) return 'Next scheduled yesterday';
+    if (diffDays < -1) return `Next scheduled ${Math.abs(diffDays)} days ago`;
+    if (diffDays > 1) return `Next scheduled in ${diffDays} days`;
+    
+    return `Next scheduled ${dueDate.format('MMM D')}`;
+  };
+
+  const getCompletionText = () => {
+    if (!isCompleted || !task.lastCompletedBy) {
+      return null;
+    }
+
+    // Use user name if available, otherwise show user ID briefly while loading
+    const userName = lastCompletedByUser?.name || lastCompletedByUser?.email || task.lastCompletedBy;
+    
+    if (task.recurrenceDays && task.lastCompletedAt) {
+      // For recurring tasks, show "Last completed by [Name] on [Date]"
+      const completedDate = dayjs(task.lastCompletedAt).format('MMM D');
+      return `Last completed by ${userName} on ${completedDate}`;
+    } else {
+      // For non-recurring tasks, show "Completed by [Name]"
+      return `Completed by ${userName}`;
+    }
+  };
+
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !isCompleted;
 
   return (
     <div className={`
-      group flex items-center space-x-3 p-3 rounded-lg border transition-all
+      group rounded-lg border transition-all
       ${isCompleted 
         ? 'bg-gray-50 border-gray-200' 
         : 'bg-white border-gray-300 hover:border-gray-400'
       }
       ${isOverdue ? 'border-red-300 bg-red-50' : ''}
     `}>
-      {/* Checkbox */}
-      <button
-        onClick={handleToggleComplete}
-        disabled={isUpdating}
-        className={`
-          flex-shrink-0 w-5 h-5 rounded border-2 transition-all
-          ${isCompleted
-            ? 'bg-green-500 border-green-500 text-white'
-            : 'border-gray-300 hover:border-gray-400'
-          }
-          ${isUpdating ? 'opacity-50 cursor-wait' : 'cursor-pointer'}
-          ${isOverdue && !isCompleted ? 'border-red-400' : ''}
-        `}
+      {/* Collapsed View - Always Visible */}
+      <div 
+        className="flex items-center space-x-3 p-3 cursor-pointer"
+        onClick={() => setIsExpanded(!isExpanded)}
       >
-        {isCompleted && (
-          <CheckIconSolid className="w-3 h-3" />
-        )}
-      </button>
+        {/* Checkbox */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleToggleComplete();
+          }}
+          disabled={isUpdating}
+          className={`
+            flex-shrink-0 w-5 h-5 rounded border-2 transition-all
+            ${isCompleted
+              ? 'bg-green-500 border-green-500 text-white'
+              : 'border-gray-300 hover:border-gray-400'
+            }
+            ${isUpdating ? 'opacity-50 cursor-wait' : 'cursor-pointer'}
+            ${isOverdue && !isCompleted ? 'border-red-400' : ''}
+          `}
+        >
+          {isCompleted && (
+            <CheckIconSolid className="w-3 h-3" />
+          )}
+        </button>
 
-      {/* Task Content */}
-      <div className="flex-grow min-w-0">
-        <div className="flex items-start justify-between">
-          <div className="flex-grow min-w-0">
-            {/* Title */}
-            <h3 className={`
-              font-medium text-sm
-              ${isCompleted 
-                ? 'text-gray-500 line-through' 
-                : isOverdue 
-                  ? 'text-red-900' 
-                  : 'text-gray-900'
+        {/* Title and Due Date */}
+        <div className="flex-grow min-w-0">
+          <h3 className={`
+            font-medium text-sm
+            ${isCompleted 
+              ? 'text-gray-500 line-through' 
+              : isOverdue 
+                ? 'text-red-900' 
+                : 'text-gray-900'
+            }
+          `}>
+            {task.title}
+          </h3>
+          
+          {/* Due Date - Always Visible */}
+          {task.dueDate && (
+            <div className={`
+              flex items-center space-x-1 text-xs mt-1
+              ${isOverdue && !isCompleted 
+                ? 'text-red-600' 
+                : isCompleted 
+                  ? 'text-gray-400' 
+                  : 'text-gray-500'
               }
             `}>
-              {task.title}
-            </h3>
-            
-            {/* Description */}
-            {task.description && (
-              <p className={`
-                text-xs mt-1
-                ${isCompleted ? 'text-gray-400' : 'text-gray-600'}
-              `}>
-                {task.description}
-              </p>
-            )}
-            
-            {/* Meta Info */}
-            <div className="flex items-center space-x-2 mt-2">
-              {/* Room Tag */}
-              {showRoomTag && roomName && (
-                <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-md">
-                  {roomName}
-                </span>
-              )}
-              
-              {/* Group Tag */}
-              {groupName && (
-                <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-md">
-                  {groupName}
-                </span>
-              )}
-              
-              {/* Orphaned Group Indicator */}
-              {task.groupId && !groupName && (
-                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-md">
-                  Ungrouped
-                </span>
-              )}
-              
-              {/* Due Date or Next Scheduled */}
-              {task.dueDate && (
-                <span className={`
-                  flex items-center space-x-1 text-xs
-                  ${isOverdue && !isCompleted 
-                    ? 'text-red-600' 
-                    : isCompleted 
-                      ? 'text-gray-400' 
-                      : 'text-gray-500'
-                  }
+              <ClockIcon className="w-3 h-3" />
+              <span>
+                {isCompleted && task.recurrenceDays 
+                  ? formatNextScheduled(task.dueDate)
+                  : formatDueDate(task.dueDate)
+                }
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Tags - Always Visible */}
+        <div className="flex items-center space-x-2">
+          {/* Group Tag */}
+          {groupName && (
+            <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-md">
+              {groupName}
+            </span>
+          )}
+          
+          {/* Orphaned Group Indicator */}
+          {task.groupId && !groupName && (
+            <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-md">
+              Ungrouped
+            </span>
+          )}
+          
+          {/* Room Tag */}
+          {showRoomTag && roomName && (
+            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-md">
+              {roomName}
+            </span>
+          )}
+        </div>
+
+        {/* Expand/Collapse Indicator */}
+        <div className="flex-shrink-0 p-1 text-gray-400">
+          {isExpanded ? (
+            <ChevronDownIcon className="w-4 h-4" />
+          ) : (
+            <ChevronRightIcon className="w-4 h-4" />
+          )}
+        </div>
+      </div>
+
+      {/* Expanded View - Only Visible When Expanded */}
+      {isExpanded && (
+        <div className="px-3 pb-3">
+          <div className="flex items-end justify-between ml-8">
+            {/* Description and Completion Info */}
+            <div className="flex-grow min-w-0">
+              {/* Description */}
+              {task.description && (
+                <p className={`
+                  text-xs
+                  ${isCompleted ? 'text-gray-400' : 'text-gray-600'}
                 `}>
-                  <ClockIcon className="w-3 h-3" />
-                  <span>
-                    {isCompleted && task.recurrenceDays 
-                      ? `Next scheduled: ${formatDueDate(task.dueDate)}`
-                      : formatDueDate(task.dueDate)
-                    }
-                  </span>
-                </span>
+                  {task.description}
+                </p>
               )}
               
-              {/* Recurrence Indicator */}
-              {task.recurrenceDays && isCompleted && (
-                <span className="flex items-center space-x-1 text-xs text-gray-400">
-                  <ArrowPathIcon className="w-3 h-3" />
-                  <span>Every {task.recurrenceDays} day{task.recurrenceDays !== 1 ? 's' : ''}</span>
+              {/* Completion Info */}
+              {getCompletionText() && (
+                <span className="text-xs text-gray-500">
+                  {getCompletionText()}
                 </span>
               )}
             </div>
-          </div>
-          
-          {/* Action Buttons */}
-          <div className="flex items-center space-x-1">
-            {/* Edit Button */}
-            {onEdit && (
-              <button
-                onClick={() => onEdit(task)}
-                className="p-1 text-gray-400 hover:text-blue-600 transition-all"
-                title="Edit task"
-              >
-                <PencilIcon className="w-4 h-4" />
-                <span className="sr-only">Edit</span>
-              </button>
-            )}
-            
-            {/* Delete Button */}
-            {canDelete && (
-              <button
-                onClick={handleDelete}
-                className="p-1 text-gray-400 hover:text-red-600 transition-all"
-                title="Delete task"
-              >
-                <TrashIcon className="w-4 h-4" />
-                <span className="sr-only">Delete</span>
-              </button>
-            )}
+
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-1 ml-4">
+              {/* Edit Button */}
+              {onEdit && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(task);
+                  }}
+                  className="p-1 text-gray-400 hover:text-blue-600 transition-all"
+                  title="Edit task"
+                >
+                  <PencilIcon className="w-4 h-4" />
+                  <span className="sr-only">Edit</span>
+                </button>
+              )}
+              
+              {/* Delete Button */}
+              {canDelete && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete();
+                  }}
+                  className="p-1 text-gray-400 hover:text-red-600 transition-all"
+                  title="Delete task"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                  <span className="sr-only">Delete</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

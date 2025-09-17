@@ -11,6 +11,7 @@ import { TaskItem } from "../TaskItem";
 import { HabitItem } from "../HabitItem";
 import { TaskForm } from "../TaskForm";
 import { HabitForm } from "../HabitForm";
+import { FloatingActionButton } from "../FloatingActionButton";
 import { HomeType, RoomType, TaskType } from "../../types/database";
 
 export interface ViewRoomsProps {
@@ -109,23 +110,6 @@ function HomeRoomsDisplay({ home, user, onAddRoom, onDeleteRoom, onTaskCreate, o
 
     return (
       <div className="space-y-4">
-        {/* Quick add buttons */}
-        <div className="flex space-x-2">
-          <button 
-            onClick={() => onTaskCreate(room)}
-            className="flex-1 bg-blue-100 text-blue-800 py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-200 transition-colors"
-          >
-            <PlusIcon className="w-4 h-4 inline mr-1" />
-            Add Task
-          </button>
-          <button 
-            onClick={() => onHabitCreate(room)}
-            className="flex-1 bg-purple-100 text-purple-800 py-2 px-3 rounded-md text-sm font-medium hover:bg-purple-200 transition-colors"
-          >
-            <PlusIcon className="w-4 h-4 inline mr-1" />
-            Add Habit
-          </button>
-        </div>
 
         {isLoading ? (
           <div className="flex justify-center py-4">
@@ -137,6 +121,15 @@ function HomeRoomsDisplay({ home, user, onAddRoom, onDeleteRoom, onTaskCreate, o
             {(groupedTasks.ungrouped || groupedHabits.ungrouped) && (
               <div>
                 <div className="space-y-2">
+                  {groupedHabits.ungrouped?.map((habit) => (
+                    <HabitItem
+                      key={habit.id}
+                      habit={habit}
+                      userId={user?.uid || ''}
+                      showRoomTag={false}
+                      onDelete={(habitId) => onItemDelete(habitId, 'habit', habit.title)}
+                    />
+                  ))}
                   {groupedTasks.ungrouped?.map((task) => {
                     const group = task.groupId ? groups.find(g => g.id === task.groupId) : null;
                     return (
@@ -151,15 +144,6 @@ function HomeRoomsDisplay({ home, user, onAddRoom, onDeleteRoom, onTaskCreate, o
                       />
                     );
                   })}
-                  {groupedHabits.ungrouped?.map((habit) => (
-                    <HabitItem
-                      key={habit.id}
-                      habit={habit}
-                      userId={user?.uid || ''}
-                      showRoomTag={false}
-                      onDelete={(habitId) => onItemDelete(habitId, 'habit', habit.title)}
-                    />
-                  ))}
                 </div>
               </div>
             )}
@@ -175,6 +159,15 @@ function HomeRoomsDisplay({ home, user, onAddRoom, onDeleteRoom, onTaskCreate, o
                 <div key={group.id}>
                   <h4 className="text-sm font-medium text-gray-700 mb-2">{group.name}</h4>
                   <div className="space-y-2">
+                    {groupHabits.map((habit) => (
+                      <HabitItem
+                        key={habit.id}
+                        habit={habit}
+                        userId={user?.uid || ''}
+                        showRoomTag={false}
+                        onDelete={(habitId) => onItemDelete(habitId, 'habit', habit.title)}
+                      />
+                    ))}
                     {groupTasks.map((task) => (
                       <TaskItem
                         key={task.id}
@@ -184,15 +177,6 @@ function HomeRoomsDisplay({ home, user, onAddRoom, onDeleteRoom, onTaskCreate, o
                         showRoomTag={false}
                         onEdit={onTaskEdit}
                         onDelete={(taskId) => onItemDelete(taskId, 'task', task.title)}
-                      />
-                    ))}
-                    {groupHabits.map((habit) => (
-                      <HabitItem
-                        key={habit.id}
-                        habit={habit}
-                        userId={user?.uid || ''}
-                        showRoomTag={false}
-                        onDelete={(habitId) => onItemDelete(habitId, 'habit', habit.title)}
                       />
                     ))}
                   </div>
@@ -756,6 +740,14 @@ export function ViewRooms(props: ViewRoomsProps) {
         variant="danger"
         isLoading={isDeletingItem}
       />
+
+      {/* Floating Action Button */}
+      {homes.length > 0 && (
+        <FloatingActionButton
+          onAddTask={() => setShowTaskModal(true)}
+          onAddHabit={() => setShowHabitModal(true)}
+        />
+      )}
 
       <Navigation />
     </>

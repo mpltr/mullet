@@ -420,26 +420,49 @@ export const taskService = {
       //   });
       // }
       
+      const completionData: any = {
+        status: 'completed',
+        completedAt: serverTimestamp()
+      };
+      
+      // Always set completion tracking if completedBy is provided (not null/undefined)
+      if (completedBy) {
+        completionData.lastCompletedBy = completedBy;
+        completionData.lastCompletedAt = serverTimestamp();
+        console.log('🔄 Setting completion tracking:', { taskId, completedBy, hasCompletedBy: !!completedBy });
+      } else {
+        console.log('⚠️ No completedBy provided for task completion:', { taskId, completedBy });
+      }
+      
       // Handle recurring tasks
       if (taskData.recurrenceDays && taskData.dueDate) {
         // Calculate next scheduled date using smart scheduling
         const nextScheduledDate = calculateNextScheduledDate(taskData.dueDate, taskData.recurrenceDays);
         
-        await updateDoc(taskRef, {
-          status: 'completed',
-          completedAt: serverTimestamp(),
+        const updateData = {
+          ...completionData,
           dueDate: Timestamp.fromDate(nextScheduledDate)
-        });
+        };
+        console.log('📝 Updating recurring task with data:', updateData);
+        await updateDoc(taskRef, updateData);
       } else {
         // Non-recurring task - just mark as completed
-        await updateDoc(taskRef, {
-          status: 'completed',
-          completedAt: serverTimestamp()
-        });
+        console.log('📝 Updating non-recurring task with data:', completionData);
+        await updateDoc(taskRef, completionData);
       }
+      
+      console.log('✅ Task update completed for taskId:', taskId);
     } else {
-      // Status change other than completion
-      await updateDoc(taskRef, { status });
+      // Status change other than completion (e.g., unchecking completed task)
+      const statusData = { status };
+      
+      // When unchecking a completed task, preserve lastCompletedBy/At info
+      // Only clear completedAt since that tracks the current completion state
+      if (taskData.status === 'completed') {
+        statusData.completedAt = deleteField();
+      }
+      
+      await updateDoc(taskRef, statusData);
     }
   },
 

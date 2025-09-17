@@ -166,6 +166,7 @@ export function useTasks(userId: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { homes, loading: homesLoading } = useHomes(userId);
+  const { preloadUsers } = useUsers();
 
   useEffect(() => {
     if (!userId) {
@@ -197,10 +198,24 @@ export function useTasks(userId: string) {
       (querySnapshot) => {
         const tasksData: TaskType[] = [];
         querySnapshot.forEach((doc) => {
-          tasksData.push({
+          const taskData = {
             id: doc.id,
             ...convertTimestamps(doc.data())
-          } as TaskType);
+          } as TaskType;
+          
+          // Debug logging for completion tracking
+          if (taskData.status === 'completed' || taskData.lastCompletedBy) {
+            console.log('📖 Reading task from DB:', {
+              id: taskData.id,
+              title: taskData.title,
+              status: taskData.status,
+              completedAt: taskData.completedAt,
+              lastCompletedBy: taskData.lastCompletedBy,
+              lastCompletedAt: taskData.lastCompletedAt
+            });
+          }
+          
+          tasksData.push(taskData);
         });
         // Sort by createdAt descending (newest first) on client-side
         tasksData.sort((a, b) => {
@@ -208,9 +223,39 @@ export function useTasks(userId: string) {
           const bTime = b.createdAt?.getTime() || 0;
           return bTime - aTime;
         });
-        setTasks(tasksData);
-        setLoading(false);
-        setError(null);
+        
+        // Preload user data for completion tracking before setting tasks
+        const userIds = new Set<string>();
+        tasksData.forEach(task => {
+          if (task.lastCompletedBy) {
+            userIds.add(task.lastCompletedBy);
+          }
+          if (task.createdBy) {
+            userIds.add(task.createdBy);
+          }
+        });
+        
+        if (userIds.size > 0) {
+          // Wait for users to be preloaded before setting tasks
+          preloadUsers(Array.from(userIds))
+            .then(() => {
+              setTasks(tasksData);
+              setLoading(false);
+              setError(null);
+            })
+            .catch(err => {
+              console.error('Failed to preload users:', err);
+              // Still set tasks even if user preloading fails
+              setTasks(tasksData);
+              setLoading(false);
+              setError(null);
+            });
+        } else {
+          // No users to preload
+          setTasks(tasksData);
+          setLoading(false);
+          setError(null);
+        }
       },
       (err) => {
         console.error('Error fetching tasks:', err);
@@ -602,22 +647,23 @@ export function useHabitsByRoom(userId: string, roomId: string) {
 }
 
 // Hook for habit completions with user enrichment
-export function useHabitCompletions(habitId: string) {
+export function useHabitCompletions(habitId: string, homeId?: string) {
   const [completions, setCompletions] = useState<HabitCompletionType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!habitId) {
+    if (!habitId || !homeId) {
       setLoading(false);
       return;
     }
 
-    console.log('🔍 Query: habit_completions where habitId ==', habitId);
+    console.log('🔍 Query: habit_completions where habitId ==', habitId, 'and homeId ==', homeId);
     
     const q = query(
       collection(db, COLLECTIONS.HABIT_COMPLETIONS),
-      where('habitId', '==', habitId)
+      where('habitId', '==', habitId),
+      where('homeId', '==', homeId)
     );
 
     const unsubscribe: Unsubscribe = onSnapshot(
@@ -642,20 +688,29 @@ export function useHabitCompletions(habitId: string) {
       },
       (err) => {
         console.error('Error fetching habit completions:', err);
-        setError(err.message);
-        setLoading(false);
+        
+        // If it's a permission error, just set empty completions and continue
+        if (err.code === 'permission-denied') {
+          console.warn('Permission denied for habit completions, setting empty array');
+          setCompletions([]);
+          setLoading(false);
+          setError(null); // Don't treat this as an error for the UI
+        } else {
+          setError(err.message);
+          setLoading(false);
+        }
       }
     );
 
     return () => unsubscribe();
-  }, [habitId]);
+  }, [habitId, homeId]);
 
   return { completions, loading, error };
 }
 
 // Hook for getting the last completion of a habit
-export function useLastHabitCompletion(habitId: string) {
-  const { completions, loading, error } = useHabitCompletions(habitId);
+export function useLastHabitCompletion(habitId: string, homeId?: string) {
+  const { completions, loading, error } = useHabitCompletions(habitId, homeId);
   
   const lastCompletion = completions.length > 0 ? completions[0] : null;
 

@@ -4,12 +4,14 @@ import { Navigation } from "../Navigation";
 import { useAuth } from "../../contexts/AuthContext";
 import { useHomes, useEnrichedUserInvitations, useTasks, useHabits, useGroups, useRooms } from "../../hooks/useDatabase";
 import { homeInvitationService, taskService, habitService } from "../../lib/database";
+import { TaskType, HabitType } from "../../types/database";
 import { Loader } from "../Loader";
 import { Modal, ConfirmModal } from "../Modal";
 import { TaskItem } from "../TaskItem";
 import { HabitItem } from "../HabitItem";
 import { TaskForm } from "../TaskForm";
 import { HabitForm } from "../HabitForm";
+import { FloatingActionButton } from "../FloatingActionButton";
 
 export interface ViewTasksProps {
   // Add any props needed from getServerSideProps or parent components
@@ -113,9 +115,18 @@ export function ViewTasks(props: ViewTasksProps) {
     groupedHabits[groupKey].push(habit);
   });
 
-  // Sort tasks within groups by due date
+  // Sort tasks within groups: uncompleted first, then completed, then by due date within each status
   Object.keys(groupedTasks).forEach(groupKey => {
     groupedTasks[groupKey].sort((a, b) => {
+      // First sort by completion status: uncompleted tasks first
+      const aCompleted = a.status === 'completed';
+      const bCompleted = b.status === 'completed';
+      
+      if (aCompleted !== bCompleted) {
+        return aCompleted ? 1 : -1; // uncompleted (false) comes before completed (true)
+      }
+      
+      // Within same completion status, sort by due date
       // Tasks without due date go last
       if (!a.dueDate && !b.dueDate) return 0;
       if (!a.dueDate) return 1;
@@ -250,23 +261,6 @@ export function ViewTasks(props: ViewTasksProps) {
           </div>
         ) : (
           <>
-            {/* Create task/habit buttons */}
-            <div className="flex space-x-3 mb-6">
-              <button 
-                onClick={() => setShowTaskModal(true)}
-                className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                <PlusIcon className="w-5 h-5 inline mr-2" />
-                Add Task
-              </button>
-              <button 
-                onClick={() => setShowHabitModal(true)}
-                className="flex-1 bg-purple-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-purple-700 transition-colors"
-              >
-                <PlusIcon className="w-5 h-5 inline mr-2" />
-                Add Habit
-              </button>
-            </div>
 
             {/* Tasks and Habits organized by groups */}
             <div className="space-y-6">
@@ -277,6 +271,19 @@ export function ViewTasks(props: ViewTasksProps) {
                     {currentHome?.name} Tasks
                   </h2>
                   <div className="space-y-3">
+                    {groupedHabits.ungrouped?.map((habit) => {
+                      const room = rooms.find(r => r.id === habit.roomId);
+                      return (
+                        <HabitItem
+                          key={habit.id}
+                          habit={habit}
+                          userId={user?.uid || ''}
+                          roomName={room?.name}
+                          showRoomTag={true}
+                          onDelete={(habitId) => handleDeleteClick(habitId, 'habit', habit.title)}
+                        />
+                      );
+                    })}
                     {groupedTasks.ungrouped?.map((task) => {
                       const room = rooms.find(r => r.id === task.roomId);
                       const group = task.groupId ? groups.find(g => g.id === task.groupId) : null;
@@ -290,19 +297,6 @@ export function ViewTasks(props: ViewTasksProps) {
                           showRoomTag={true}
                           onEdit={handleTaskEdit}
                           onDelete={(taskId) => handleDeleteClick(taskId, 'task', task.title)}
-                        />
-                      );
-                    })}
-                    {groupedHabits.ungrouped?.map((habit) => {
-                      const room = rooms.find(r => r.id === habit.roomId);
-                      return (
-                        <HabitItem
-                          key={habit.id}
-                          habit={habit}
-                          userId={user?.uid || ''}
-                          roomName={room?.name}
-                          showRoomTag={true}
-                          onDelete={(habitId) => handleDeleteClick(habitId, 'habit', habit.title)}
                         />
                       );
                     })}
@@ -321,6 +315,19 @@ export function ViewTasks(props: ViewTasksProps) {
                   <div key={group.id}>
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">{group.name}</h2>
                     <div className="space-y-3">
+                      {groupHabits.map((habit) => {
+                        const room = rooms.find(r => r.id === habit.roomId);
+                        return (
+                          <HabitItem
+                            key={habit.id}
+                            habit={habit}
+                            userId={user?.uid || ''}
+                            roomName={room?.name}
+                            showRoomTag={true}
+                            onDelete={(habitId) => handleDeleteClick(habitId, 'habit', habit.title)}
+                          />
+                        );
+                      })}
                       {groupTasks.map((task) => {
                         const room = rooms.find(r => r.id === task.roomId);
                         return (
@@ -333,19 +340,6 @@ export function ViewTasks(props: ViewTasksProps) {
                             showRoomTag={true}
                             onEdit={handleTaskEdit}
                             onDelete={(taskId) => handleDeleteClick(taskId, 'task', task.title)}
-                          />
-                        );
-                      })}
-                      {groupHabits.map((habit) => {
-                        const room = rooms.find(r => r.id === habit.roomId);
-                        return (
-                          <HabitItem
-                            key={habit.id}
-                            habit={habit}
-                            userId={user?.uid || ''}
-                            roomName={room?.name}
-                            showRoomTag={true}
-                            onDelete={(habitId) => handleDeleteClick(habitId, 'habit', habit.title)}
                           />
                         );
                       })}
@@ -431,6 +425,14 @@ export function ViewTasks(props: ViewTasksProps) {
       variant="danger"
       isLoading={isDeleting}
     />
+
+    {/* Floating Action Button */}
+    {currentHome && (
+      <FloatingActionButton
+        onAddTask={() => setShowTaskModal(true)}
+        onAddHabit={() => setShowHabitModal(true)}
+      />
+    )}
 
     <Navigation />
     </>

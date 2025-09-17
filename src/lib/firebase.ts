@@ -3,12 +3,12 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!
+  apiKey: "AIzaSyApogsECUaNtSsAddiiRcYZ7MNhRZXYK4E",
+  authDomain: "mullet-3f113.firebaseapp.com",
+  projectId: "mullet-3f113",
+  storageBucket: "mullet-3f113.firebasestorage.app",
+  messagingSenderId: "139867870900",
+  appId: "1:139867870900:web:6544de9e968bc8ce4de9e1"
 };
 
 const app = initializeApp(firebaseConfig);

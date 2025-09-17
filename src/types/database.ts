@@ -39,6 +39,8 @@ export interface TaskType {
   createdBy: string; // userId
   createdAt: Date;
   completedAt?: Date;
+  lastCompletedBy?: string; // userId of person who last completed the task
+  lastCompletedAt?: Date; // timestamp when task was last completed
   recurrenceDays?: number; // optional - number of days for recurrence
   nextDueDate?: Date; // for recurring tasks, the next scheduled due date
 }

@@ -3,6 +3,7 @@ import { HabitType, RoomType } from '../../types/database';
 import { habitService } from '../../lib/database';
 import { useGroups } from '../../hooks/useDatabase';
 import { Input } from '../Input';
+import { GroupSelector } from '../GroupSelector';
 
 export interface HabitFormProps {
   homeId: string;
@@ -104,7 +105,7 @@ export function HabitForm({
         {/* Description */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Description (Optional)
+            Description
           </label>
           <textarea
             value={description}
@@ -112,48 +113,43 @@ export function HabitForm({
             placeholder="Add details about this habit..."
             disabled={isLoading || submitting}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 disabled:opacity-50"
           />
         </div>
+
+        {/* Group Selection */}
+        {!groupsLoading && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Group
+            </label>
+            <GroupSelector
+              homeId={homeId}
+              userId={userId}
+              groups={groups}
+              selectedGroupId={groupId}
+              onGroupSelect={setGroupId}
+              disabled={isLoading || submitting}
+            />
+          </div>
+        )}
 
         {/* Room Selection */}
         {rooms.length > 0 && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Room (Optional)
+              Room
             </label>
             <select
               value={roomId}
               onChange={(e) => setRoomId(e.target.value)}
               disabled={isLoading || submitting}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 disabled:opacity-50"
             >
               <option value="">No specific room</option>
               {rooms.map((room) => (
                 <option key={room.id} value={room.id}>
                   {room.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Group Selection */}
-        {!groupsLoading && groups.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Group (Optional)
-            </label>
-            <select
-              value={groupId}
-              onChange={(e) => setGroupId(e.target.value)}
-              disabled={isLoading || submitting}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
-            >
-              <option value="">Ungrouped</option>
-              {groups.map((group) => (
-                <option key={group.id} value={group.id}>
-                  {group.name}
                 </option>
               ))}
             </select>
