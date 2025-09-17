@@ -1,13 +1,18 @@
 import { useState } from 'react';
-import { PlusIcon, HomeIcon, EnvelopeIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, HomeIcon, EnvelopeIcon, TrashIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { Navigation } from "../Navigation";
 import { useAuth } from "../../contexts/AuthContext";
-import { useHomes, useEnrichedUserInvitations, useRooms } from "../../hooks/useDatabase";
-import { homeInvitationService, roomService } from "../../lib/database";
+import { useHomes, useEnrichedUserInvitations, useRooms, useTasks, useHabits, useGroups } from "../../hooks/useDatabase";
+import { homeInvitationService, roomService, taskService, habitService } from "../../lib/database";
 import { Loader } from "../Loader";
 import { Modal, ConfirmModal } from "../Modal";
 import { Input } from "../Input";
-import { HomeType, RoomType } from "../../types/database";
+import { TaskItem } from "../TaskItem";
+import { HabitItem } from "../HabitItem";
+import { TaskForm } from "../TaskForm";
+import { HabitForm } from "../HabitForm";
+import { FloatingActionButton } from "../FloatingActionButton";
+import { HomeType, RoomType, TaskType } from "../../types/database";
 
 export interface ViewRoomsProps {
   // Add any props needed from getServerSideProps or parent components
@@ -19,19 +24,175 @@ interface HomeRoomsDisplayProps {
   user: any;
   onAddRoom: (homeId: string) => void;
   onDeleteRoom: (room: RoomType) => void;
+  onTaskCreate: (room: RoomType) => void;
+  onHabitCreate: (room: RoomType) => void;
+  onTaskEdit: (task: TaskType) => void;
+  onItemDelete: (id: string, type: 'task' | 'habit', title: string) => void;
 }
 
-function HomeRoomsDisplay({ home, user, onAddRoom, onDeleteRoom }: HomeRoomsDisplayProps) {
-  const { rooms, loading } = useRooms(home.id);
+function HomeRoomsDisplay({ home, user, onAddRoom, onDeleteRoom, onTaskCreate, onHabitCreate, onTaskEdit, onItemDelete }: HomeRoomsDisplayProps) {
+  const { rooms, loading: roomsLoading } = useRooms(home.id);
+  const { tasks, loading: tasksLoading } = useTasks(user?.uid || '');
+  const { habits, loading: habitsLoading } = useHabits(user?.uid || '');
+  const { groups, loading: groupsLoading } = useGroups(home.id);
   const isOwner = home.createdBy === user?.uid;
 
-  if (loading) {
+  if (roomsLoading) {
     return (
       <div className="flex justify-center py-8">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
       </div>
     );
   }
+
+  const isLoading = tasksLoading || habitsLoading || groupsLoading;
+
+  // Filter tasks and habits for this home
+  const homeTasks = tasks.filter(task => task.homeId === home.id);
+  const homeHabits = habits.filter(habit => habit.homeId === home.id);
+
+  // Helper function to get color classes
+  const getColorDotClass = (color: string) => {
+    const colorMap: Record<string, string> = {
+      'red-200': 'bg-red-200',
+      'orange-200': 'bg-orange-200',
+      'amber-200': 'bg-amber-200',
+      'yellow-200': 'bg-yellow-200',
+      'lime-200': 'bg-lime-200',
+      'green-200': 'bg-green-200',
+      'emerald-200': 'bg-emerald-200',
+      'teal-200': 'bg-teal-200',
+      'cyan-200': 'bg-cyan-200',
+      'sky-200': 'bg-sky-200',
+      'blue-200': 'bg-blue-200',
+      'indigo-200': 'bg-indigo-200',
+      'violet-200': 'bg-violet-200',
+      'purple-200': 'bg-purple-200',
+      'fuchsia-200': 'bg-fuchsia-200',
+      'pink-200': 'bg-pink-200',
+      'rose-200': 'bg-rose-200'
+    };
+    return colorMap[color] || 'bg-gray-200';
+  };
+
+  const renderRoomContent = (room: RoomType) => {
+    // Filter tasks and habits for this room
+    const roomTasks = homeTasks.filter(task => task.roomId === room.id);
+    const roomHabits = homeHabits.filter(habit => habit.roomId === room.id);
+
+    // Group tasks and habits by group
+    const groupedTasks: Record<string, typeof roomTasks> = {};
+    const groupedHabits: Record<string, typeof roomHabits> = {};
+    
+    roomTasks.forEach(task => {
+      const groupKey = task.groupId || 'ungrouped';
+      if (!groupedTasks[groupKey]) groupedTasks[groupKey] = [];
+      groupedTasks[groupKey].push(task);
+    });
+
+    roomHabits.forEach(habit => {
+      const groupKey = habit.groupId || 'ungrouped';
+      if (!groupedHabits[groupKey]) groupedHabits[groupKey] = [];
+      groupedHabits[groupKey].push(habit);
+    });
+
+    // Sort tasks within groups by due date
+    Object.keys(groupedTasks).forEach(groupKey => {
+      groupedTasks[groupKey].sort((a, b) => {
+        if (!a.dueDate && !b.dueDate) return 0;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      });
+    });
+
+    const hasContent = roomTasks.length > 0 || roomHabits.length > 0;
+
+    return (
+      <div className="space-y-4">
+
+        {isLoading ? (
+          <div className="flex justify-center py-4">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          </div>
+        ) : hasContent ? (
+          <div className="space-y-4">
+            {/* Ungrouped items first */}
+            {(groupedTasks.ungrouped || groupedHabits.ungrouped) && (
+              <div>
+                <div className="space-y-2">
+                  {groupedHabits.ungrouped?.map((habit) => (
+                    <HabitItem
+                      key={habit.id}
+                      habit={habit}
+                      userId={user?.uid || ''}
+                      showRoomTag={false}
+                      onDelete={(habitId) => onItemDelete(habitId, 'habit', habit.title)}
+                    />
+                  ))}
+                  {groupedTasks.ungrouped?.map((task) => {
+                    const group = task.groupId ? groups.find(g => g.id === task.groupId) : null;
+                    return (
+                      <TaskItem
+                        key={task.id}
+                        task={task}
+                        userId={user?.uid || ''}
+                        groupName={group?.name}
+                        showRoomTag={false}
+                        onEdit={onTaskEdit}
+                        onDelete={(taskId) => onItemDelete(taskId, 'task', task.title)}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Grouped items */}
+            {groups.map((group) => {
+              const groupTasks = groupedTasks[group.id] || [];
+              const groupHabits = groupedHabits[group.id] || [];
+              
+              if (groupTasks.length === 0 && groupHabits.length === 0) return null;
+
+              return (
+                <div key={group.id}>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">{group.name}</h4>
+                  <div className="space-y-2">
+                    {groupHabits.map((habit) => (
+                      <HabitItem
+                        key={habit.id}
+                        habit={habit}
+                        userId={user?.uid || ''}
+                        showRoomTag={false}
+                        onDelete={(habitId) => onItemDelete(habitId, 'habit', habit.title)}
+                      />
+                    ))}
+                    {groupTasks.map((task) => (
+                      <TaskItem
+                        key={task.id}
+                        task={task}
+                        userId={user?.uid || ''}
+                        groupName={group.name}
+                        showRoomTag={false}
+                        onEdit={onTaskEdit}
+                        onDelete={(taskId) => onItemDelete(taskId, 'task', task.title)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-6">
+            <CheckIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+            <p className="text-sm text-gray-500">No tasks or habits in this room yet</p>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -49,80 +210,26 @@ function HomeRoomsDisplay({ home, user, onAddRoom, onDeleteRoom }: HomeRoomsDisp
       </div>
       
       {rooms && rooms.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {rooms.map((room) => {
-            const getBackgroundClass = (color: string) => {
-              const colorMap: Record<string, string> = {
-                'red-200': 'bg-red-200 bg-opacity-20 border-red-100 hover:bg-opacity-30',
-                'orange-200': 'bg-orange-200 bg-opacity-20 border-orange-100 hover:bg-opacity-30',
-                'amber-200': 'bg-amber-200 bg-opacity-20 border-amber-100 hover:bg-opacity-30',
-                'yellow-200': 'bg-yellow-200 bg-opacity-20 border-yellow-100 hover:bg-opacity-30',
-                'lime-200': 'bg-lime-200 bg-opacity-20 border-lime-100 hover:bg-opacity-30',
-                'green-200': 'bg-green-200 bg-opacity-20 border-green-100 hover:bg-opacity-30',
-                'emerald-200': 'bg-emerald-200 bg-opacity-20 border-emerald-100 hover:bg-opacity-30',
-                'teal-200': 'bg-teal-200 bg-opacity-20 border-teal-100 hover:bg-opacity-30',
-                'cyan-200': 'bg-cyan-200 bg-opacity-20 border-cyan-100 hover:bg-opacity-30',
-                'sky-200': 'bg-sky-200 bg-opacity-20 border-sky-100 hover:bg-opacity-30',
-                'blue-200': 'bg-blue-200 bg-opacity-20 border-blue-100 hover:bg-opacity-30',
-                'indigo-200': 'bg-indigo-200 bg-opacity-20 border-indigo-100 hover:bg-opacity-30',
-                'violet-200': 'bg-violet-200 bg-opacity-20 border-violet-100 hover:bg-opacity-30',
-                'purple-200': 'bg-purple-200 bg-opacity-20 border-purple-100 hover:bg-opacity-30',
-                'fuchsia-200': 'bg-fuchsia-200 bg-opacity-20 border-fuchsia-100 hover:bg-opacity-30',
-                'pink-200': 'bg-pink-200 bg-opacity-20 border-pink-100 hover:bg-opacity-30',
-                'rose-200': 'bg-rose-200 bg-opacity-20 border-rose-100 hover:bg-opacity-30'
-              };
-              return colorMap[color] || 'bg-gray-200 bg-opacity-20 border-gray-100 hover:bg-opacity-30';
-            };
-
-            const getColorDotClass = (color: string) => {
-              const colorMap: Record<string, string> = {
-                'red-200': 'bg-red-200',
-                'orange-200': 'bg-orange-200',
-                'amber-200': 'bg-amber-200',
-                'yellow-200': 'bg-yellow-200',
-                'lime-200': 'bg-lime-200',
-                'green-200': 'bg-green-200',
-                'emerald-200': 'bg-emerald-200',
-                'teal-200': 'bg-teal-200',
-                'cyan-200': 'bg-cyan-200',
-                'sky-200': 'bg-sky-200',
-                'blue-200': 'bg-blue-200',
-                'indigo-200': 'bg-indigo-200',
-                'violet-200': 'bg-violet-200',
-                'purple-200': 'bg-purple-200',
-                'fuchsia-200': 'bg-fuchsia-200',
-                'pink-200': 'bg-pink-200',
-                'rose-200': 'bg-rose-200'
-              };
-              return colorMap[color] || 'bg-gray-200';
-            };
-
-            return (
-              <div 
-                key={room.id} 
-                className={`p-4 rounded-lg border transition-colors cursor-pointer ${getBackgroundClass(room.color)}`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    <div className={`w-3 h-3 rounded-full ${getColorDotClass(room.color)}`}></div>
-                    <h3 className="font-medium text-gray-900">{room.name}</h3>
-                  </div>
+        <div className="space-y-6">
+          {rooms.map((room) => (
+            <div key={room.id} className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <div className={`w-3 h-3 rounded-full ${getColorDotClass(room.color)}`}></div>
+                  <h3 className="font-medium text-gray-900">{room.name}</h3>
+                </div>
                 {isOwner && (
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteRoom(room);
-                    }}
+                    onClick={() => onDeleteRoom(room)}
                     className="p-1 text-gray-400 hover:text-red-600 transition-colors"
                   >
                     <TrashIcon className="w-4 h-4" />
                   </button>
                 )}
               </div>
-              <p className="text-sm text-gray-600">Click to view room contents</p>
+              {renderRoomContent(room)}
             </div>
-          );
-          })}
+          ))}
         </div>
       ) : isOwner ? (
         <div className="text-center py-8 bg-white rounded-lg border-2 border-dashed border-gray-300">
@@ -157,6 +264,15 @@ export function ViewRooms(props: ViewRoomsProps) {
   const [selectedHome, setSelectedHome] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // State for task/habit management
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showHabitModal, setShowHabitModal] = useState(false);
+  const [showItemDeleteModal, setShowItemDeleteModal] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<RoomType | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{id: string, type: 'task' | 'habit', title: string} | null>(null);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState<TaskType | null>(null);
 
   // Available colors
   const allColors = [
@@ -238,6 +354,46 @@ export function ViewRooms(props: ViewRoomsProps) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleTaskCreate = (room: RoomType) => {
+    setSelectedRoom(room);
+    setShowTaskModal(true);
+  };
+
+  const handleHabitCreate = (room: RoomType) => {
+    setSelectedRoom(room);
+    setShowHabitModal(true);
+  };
+
+  const handleItemDeleteClick = (id: string, type: 'task' | 'habit', title: string) => {
+    setItemToDelete({ id, type, title });
+    setShowItemDeleteModal(true);
+  };
+
+  const handleConfirmItemDelete = async () => {
+    if (!itemToDelete || isDeletingItem) return;
+
+    setIsDeletingItem(true);
+    try {
+      if (itemToDelete.type === 'task') {
+        await taskService.delete(itemToDelete.id);
+      } else {
+        await habitService.delete(itemToDelete.id);
+      }
+      setShowItemDeleteModal(false);
+      setItemToDelete(null);
+    } catch (error) {
+      console.error(`Error deleting ${itemToDelete.type}:`, error);
+    } finally {
+      setIsDeletingItem(false);
+    }
+  };
+
+  const handleTaskEdit = (task: TaskType) => {
+    setTaskToEdit(task);
+    setSelectedRoom(null);
+    setShowTaskModal(true);
   };
 
   if (homesLoading || invitationsLoading) {
@@ -358,6 +514,10 @@ export function ViewRooms(props: ViewRoomsProps) {
                   user={user}
                   onAddRoom={handleOpenAddModal}
                   onDeleteRoom={handleOpenDeleteModal}
+                  onTaskCreate={handleTaskCreate}
+                  onHabitCreate={handleHabitCreate}
+                  onTaskEdit={handleTaskEdit}
+                  onItemDelete={handleItemDeleteClick}
                 />
               ))}
             </div>
@@ -499,7 +659,65 @@ export function ViewRooms(props: ViewRoomsProps) {
         </div>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
+      {/* Task Creation/Edit Modal */}
+      <Modal
+        isOpen={showTaskModal}
+        onClose={() => {
+          setShowTaskModal(false);
+          setSelectedRoom(null);
+          setTaskToEdit(null);
+        }}
+        title={taskToEdit ? "Edit Task" : "Create New Task"}
+        size="md"
+      >
+        {(selectedRoom || taskToEdit) && (
+          <TaskForm
+            homeId={(selectedRoom?.homeId || taskToEdit?.homeId) || ''}
+            userId={user?.uid || ''}
+            rooms={selectedRoom ? [selectedRoom] : rooms}
+            task={taskToEdit || undefined}
+            onSave={() => {
+              setShowTaskModal(false);
+              setSelectedRoom(null);
+              setTaskToEdit(null);
+            }}
+            onCancel={() => {
+              setShowTaskModal(false);
+              setSelectedRoom(null);
+              setTaskToEdit(null);
+            }}
+          />
+        )}
+      </Modal>
+
+      {/* Habit Creation Modal */}
+      <Modal
+        isOpen={showHabitModal}
+        onClose={() => {
+          setShowHabitModal(false);
+          setSelectedRoom(null);
+        }}
+        title="Create New Habit"
+        size="md"
+      >
+        {selectedRoom && (
+          <HabitForm
+            homeId={selectedRoom.homeId}
+            userId={user?.uid || ''}
+            rooms={[selectedRoom]}
+            onSave={() => {
+              setShowHabitModal(false);
+              setSelectedRoom(null);
+            }}
+            onCancel={() => {
+              setShowHabitModal(false);
+              setSelectedRoom(null);
+            }}
+          />
+        )}
+      </Modal>
+
+      {/* Delete Room Confirmation Modal */}
       <ConfirmModal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
@@ -510,6 +728,26 @@ export function ViewRooms(props: ViewRoomsProps) {
         variant="danger"
         isLoading={isLoading}
       />
+
+      {/* Delete Task/Habit Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showItemDeleteModal}
+        onClose={() => setShowItemDeleteModal(false)}
+        onConfirm={handleConfirmItemDelete}
+        title={`Delete ${itemToDelete?.type}`}
+        message={`Are you sure you want to delete "${itemToDelete?.title}"? This action cannot be undone.`}
+        confirmText="Delete"
+        variant="danger"
+        isLoading={isDeletingItem}
+      />
+
+      {/* Floating Action Button */}
+      {homes.length > 0 && (
+        <FloatingActionButton
+          onAddTask={() => setShowTaskModal(true)}
+          onAddHabit={() => setShowHabitModal(true)}
+        />
+      )}
 
       <Navigation />
     </>

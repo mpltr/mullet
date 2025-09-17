@@ -18,10 +18,6 @@ service cloud.firestore {
     // Note: Removed isHomeOwner helper to avoid circular dependency
     // Home ownership is now checked directly in each rule where the resource is available
     
-    // Helper function to check if user is authorized for tasks/rooms
-    function isAuthorizedUser(authorizedUsers) {
-      return isAuthenticated() && request.auth.uid in authorizedUsers;
-    }
 
     // Users collection - users can read/write their own data
     match /users/{userId} {
@@ -74,18 +70,18 @@ service cloud.firestore {
 
     // Tasks collection
     match /tasks/{taskId} {
-      // Users can read tasks if they're authorized
+      // Users can read tasks if they're a member of the home that owns the task
       allow read: if isAuthenticated() && 
-                     request.auth.uid in resource.data.authorizedUsers;
+                     request.auth.uid in get(/databases/$(database)/documents/homes/$(resource.data.homeId)).data.members;
       
-      // Users can create tasks if they're authorized and the creator
+      // Users can create tasks if they're a member of the home and the creator
       allow create: if isAuthenticated() && 
-                       request.auth.uid in request.resource.data.authorizedUsers &&
+                       request.auth.uid in get(/databases/$(database)/documents/homes/$(request.resource.data.homeId)).data.members &&
                        request.auth.uid == request.resource.data.createdBy;
       
-      // Users can update tasks if they're authorized
+      // Users can update tasks if they're a member of the home
       allow update: if isAuthenticated() && 
-                       isAuthorizedUser(resource.data.authorizedUsers);
+                       request.auth.uid in get(/databases/$(database)/documents/homes/$(resource.data.homeId)).data.members;
       
       // Only task creators can delete tasks (home owner delete handled by app logic)
       allow delete: if isAuthenticated() && 
@@ -114,6 +110,77 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && 
                        (request.auth.token.email == resource.data.invitedEmail ||
                         request.auth.uid == resource.data.invitedBy);
+    }
+
+    // Habits collection
+    match /habits/{habitId} {
+      // Users can read habits if they're a member of the home that owns the habit
+      allow read: if isAuthenticated() && 
+                     request.auth.uid in get(/databases/$(database)/documents/homes/$(resource.data.homeId)).data.members;
+      
+      // Users can create habits if they're a member of the home and the creator
+      allow create: if isAuthenticated() && 
+                       request.auth.uid in get(/databases/$(database)/documents/homes/$(request.resource.data.homeId)).data.members &&
+                       request.auth.uid == request.resource.data.createdBy;
+      
+      // Users can update habits if they're a member of the home
+      allow update: if isAuthenticated() && 
+                       request.auth.uid in get(/databases/$(database)/documents/homes/$(resource.data.homeId)).data.members;
+      
+      // Only habit creators can delete habits (home owner delete handled by app logic)
+      allow delete: if isAuthenticated() && 
+                       request.auth.uid == resource.data.createdBy;
+    }
+
+    // Groups collection
+    match /groups/{groupId} {
+      // Users can read groups if they're a member of the home that owns the group
+      allow read: if isAuthenticated() && 
+                     request.auth.uid in get(/databases/$(database)/documents/homes/$(resource.data.homeId)).data.members;
+      
+      // Users can create groups if they're a member of the home
+      allow create: if isAuthenticated() && 
+                       request.auth.uid in get(/databases/$(database)/documents/homes/$(request.resource.data.homeId)).data.members;
+      
+      // Users can update/delete groups if they're a member of the home
+      allow update, delete: if isAuthenticated() && 
+                               request.auth.uid in get(/databases/$(database)/documents/homes/$(resource.data.homeId)).data.members;
+    }
+
+    // Task completions collection
+    match /task_completions/{completionId} {
+      // Users can read task completions for tasks they're authorized to see
+      allow read: if isAuthenticated() && 
+                     request.auth.uid in get(/databases/$(database)/documents/homes/$(resource.data.homeId)).data.members;
+      
+      // Only authenticated users can create completions (app logic ensures proper task authorization)
+      allow create: if isAuthenticated() && 
+                       request.auth.uid == request.resource.data.completedBy;
+      
+      // No updates allowed on completions (they're immutable history)
+      allow update: if false;
+      
+      // Only creators can delete their own completions
+      allow delete: if isAuthenticated() && 
+                       request.auth.uid == resource.data.completedBy;
+    }
+
+    // Habit completions collection
+    match /habit_completions/{completionId} {
+      // Users can read habit completions for their home
+      allow read: if isAuthenticated() && 
+                     request.auth.uid in get(/databases/$(database)/documents/homes/$(resource.data.homeId)).data.members;
+      
+      // Only authenticated users can create completions
+      allow create: if isAuthenticated() && 
+                       request.auth.uid == request.resource.data.completedBy;
+      
+      // No updates allowed on completions (they're immutable history)
+      allow update: if false;
+      
+      // Only creators can delete their own completions
+      allow delete: if isAuthenticated() && 
+                       request.auth.uid == resource.data.completedBy;
     }
   }
 }
