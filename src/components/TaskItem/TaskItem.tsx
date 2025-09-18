@@ -182,7 +182,7 @@ export function TaskItem({
         </div>
 
         {/* Tags - Always Visible */}
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-col space-y-1 items-end">
           {/* Group Tag */}
           {groupName && (
             <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-md">
@@ -240,7 +240,7 @@ export function TaskItem({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center space-x-1 ml-4">
+            <div className="flex items-center space-x-1 ml-4 mr-8">
               {/* Edit Button */}
               {onEdit && (
                 <button

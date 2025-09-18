@@ -1,20 +1,20 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { HomeIcon, ListBulletIcon, ClipboardDocumentListIcon, UserIcon } from '@heroicons/react/24/outline';
-import { HomeIcon as HomeIconSolid, ListBulletIcon as ListBulletIconSolid, ClipboardDocumentListIcon as ClipboardDocumentListIconSolid, UserIcon as UserIconSolid } from '@heroicons/react/24/solid';
+import { ClockIcon, ListBulletIcon, ClipboardDocumentListIcon, UserIcon } from '@heroicons/react/24/outline';
+import { ClockIcon as ClockIconSolid, ListBulletIcon as ListBulletIconSolid, ClipboardDocumentListIcon as ClipboardDocumentListIconSolid, UserIcon as UserIconSolid } from '@heroicons/react/24/solid';
 
 const navigationItems = [
-  {
-    name: 'Rooms',
-    href: '/rooms',
-    icon: HomeIcon,
-    iconActive: HomeIconSolid,
-  },
   {
     name: 'Tasks',
     href: '/tasks',
     icon: ClipboardDocumentListIcon,
     iconActive: ClipboardDocumentListIconSolid,
+  },
+  {
+    name: 'Habits',
+    href: '/habits',
+    icon: ClockIcon,
+    iconActive: ClockIconSolid,
   },
   {
     name: 'Lists',

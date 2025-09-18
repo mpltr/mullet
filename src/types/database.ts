@@ -80,6 +80,11 @@ export interface HabitCompletionType {
   homeId: string; // for efficient querying
 }
 
+export interface UserPreferences {
+  taskSort?: 'group' | 'date' | 'room';
+  habitSort?: 'group' | 'date' | 'room';
+}
+
 export interface UserType {
   id: string; // matches Firebase Auth uid
   email: string;
@@ -88,6 +93,7 @@ export interface UserType {
   homes: string[]; // homeIds for quick access
   createdAt: Date;
   lastLoginAt: Date;
+  preferences?: UserPreferences;
 }
 
 export interface HomeInvitationType {
