@@ -78,7 +78,7 @@ export function HabitItem({
 
   return (
     <>
-    <div className="group rounded-lg border bg-gradient-to-r from-purple-100 to-indigo-100 border-purple-300 hover:border-purple-400 transition-all">
+    <div className="group rounded-lg border bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-900 dark:to-indigo-900 border-purple-300 dark:border-purple-600 hover:border-purple-400 dark:hover:border-purple-500 transition-all">
       {/* Collapsed View - Always Visible */}
       <div 
         className="flex items-center space-x-3 p-3 cursor-pointer"
@@ -94,7 +94,7 @@ export function HabitItem({
           className={`
             flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-md transition-all
             ${isCompleting
-              ? 'bg-gray-300 text-gray-500 cursor-wait'
+              ? 'bg-gray-300 text-gray-500 dark:text-gray-400 cursor-wait'
               : 'bg-purple-600 hover:bg-purple-700 text-white'
             }
           `}
@@ -111,20 +111,20 @@ export function HabitItem({
 
         {/* Title and Completion Status */}
         <div className="flex-grow min-w-0">
-          <h3 className="font-medium text-sm text-gray-900">
+          <h3 className="font-medium text-sm text-gray-900 dark:text-gray-100">
             {habit.title}
           </h3>
           
           {/* Last Completion - Always Visible */}
           <div className="mt-1">
             {!completionLoading && lastCompletion && (
-              <div className="text-xs text-purple-800 bg-purple-200 px-2 py-1 rounded-md inline-block">
+              <div className="text-xs text-purple-800 dark:text-purple-200 bg-purple-200 dark:bg-purple-800 px-2 py-1 rounded-md inline-block">
                 Last: {formatLastCompletion(lastCompletion)}
               </div>
             )}
             
             {!completionLoading && !lastCompletion && (
-              <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md inline-block">
+              <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md inline-block">
                 Never completed
               </div>
             )}
@@ -141,7 +141,7 @@ export function HabitItem({
         <div className="flex flex-col space-y-1 items-end">
           {/* Group Tag */}
           {groupName && (
-            <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-md">
+            <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 dark:text-purple-200 rounded-md">
               {groupName}
             </span>
           )}

@@ -226,12 +226,12 @@ export function ViewHabits(props: ViewHabitsProps) {
       <>
         <div className="min-h-screen bg-gray-50 pb-20">
           <div className="px-4 py-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">Habits</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Habits</h1>
             
             {/* Show pending invitations */}
             {invitations.length > 0 && (
               <div className="mb-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Pending Invitations</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Pending Invitations</h2>
                 <div className="space-y-3">
                   {invitations.map((invitation) => (
                     <div key={invitation.id} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -256,7 +256,7 @@ export function ViewHabits(props: ViewHabitsProps) {
                           </button>
                           <button
                             onClick={() => handleDeclineInvitation(invitation.id)}
-                            className="bg-gray-300 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-400"
+                            className="bg-gray-300 text-gray-700 dark:text-gray-300 px-3 py-1 rounded text-sm hover:bg-gray-400"
                           >
                             Decline
                           </button>
@@ -269,8 +269,8 @@ export function ViewHabits(props: ViewHabitsProps) {
             )}
 
             <div className="text-center py-12">
-              <ArrowPathIcon className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No homes yet</h3>
+              <ArrowPathIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No homes yet</h3>
               <p className="mt-1 text-sm text-gray-500">
                 You need to be part of a home to manage habits.
               </p>
@@ -286,13 +286,13 @@ export function ViewHabits(props: ViewHabitsProps) {
 
   return (
     <>
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
       <div className="px-4 py-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Habits</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-100 mb-6">Habits</h1>
         
         {/* Sort By Dropdown */}
         <div className="mb-4 flex items-center space-x-3">
-          <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Sort by</label>
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Sort by</label>
           <div className="relative flex-1">
             <select
               value={groupBy}
@@ -301,19 +301,19 @@ export function ViewHabits(props: ViewHabitsProps) {
                 setGroupBy(newValue);
                 updatePreferences({ habitSort: newValue });
               }}
-              className="w-full appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              className="w-full appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 pl-3 pr-10 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-500 dark:focus:border-purple-400"
             >
               <option value="group">Group</option>
               <option value="date">Date</option>
               <option value="room">Room</option>
             </select>
-            <ChevronDownIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
+            <ChevronDownIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
           </div>
         </div>
 
         {isLoading ? (
           <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 dark:border-purple-400"></div>
           </div>
         ) : (
           <>
@@ -323,7 +323,7 @@ export function ViewHabits(props: ViewHabitsProps) {
                 {/* Ungrouped habits first */}
                 {groupedHabits.ungrouped && (
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
                       {currentHome?.name} Habits
                     </h2>
                     <div className="space-y-3">
@@ -354,7 +354,7 @@ export function ViewHabits(props: ViewHabitsProps) {
 
                   return (
                     <div key={group.id}>
-                      <h2 className="text-lg font-semibold text-gray-900 mb-4">{group.name}</h2>
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{group.name}</h2>
                       <div className="space-y-3">
                         {groupHabits.map((habit) => {
                           const room = rooms.find(r => r.id === habit.roomId);
@@ -379,8 +379,8 @@ export function ViewHabits(props: ViewHabitsProps) {
                 {/* Empty state when no habits */}
                 {currentHabits.length === 0 && (
                   <div className="text-center py-12">
-                    <ArrowPathIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No habits yet</h3>
+                    <ArrowPathIcon className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No habits yet</h3>
                     <p className="text-gray-600 mb-6">Create your first habit to start building good routines.</p>
                   </div>
                 )}
@@ -389,7 +389,7 @@ export function ViewHabits(props: ViewHabitsProps) {
               /* Date-First Display (simplified for habits) */
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">All Habits</h2>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">All Habits</h2>
                   <div className="space-y-3">
                     {dateSortedData.dateGroupedHabits['no-due-date']?.map((habit) => {
                       const room = rooms.find(r => r.id === habit.roomId);
@@ -412,8 +412,8 @@ export function ViewHabits(props: ViewHabitsProps) {
                 {/* Empty state when no habits */}
                 {currentHabits.length === 0 && (
                   <div className="text-center py-12">
-                    <ArrowPathIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No habits yet</h3>
+                    <ArrowPathIcon className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No habits yet</h3>
                     <p className="text-gray-600 mb-6">Create your first habit to start building good routines.</p>
                   </div>
                 )}
@@ -424,7 +424,7 @@ export function ViewHabits(props: ViewHabitsProps) {
                 {/* No Room section first */}
                 {roomSortedData.roomGroupedHabits['no-room'] && (
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">No Room</h2>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">No Room</h2>
                     <div className="space-y-3">
                       {roomSortedData.roomGroupedHabits['no-room']?.map((habit) => {
                         const group = groups.find(g => g.id === habit.groupId);
@@ -451,7 +451,7 @@ export function ViewHabits(props: ViewHabitsProps) {
 
                   return (
                     <div key={room.id}>
-                      <h2 className="text-lg font-semibold text-gray-900 mb-4">{room.name}</h2>
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{room.name}</h2>
                       <div className="space-y-3">
                         {roomHabits.map((habit) => {
                           const group = groups.find(g => g.id === habit.groupId);
@@ -474,8 +474,8 @@ export function ViewHabits(props: ViewHabitsProps) {
                 {/* Empty state when no habits */}
                 {currentHabits.length === 0 && (
                   <div className="text-center py-12">
-                    <ArrowPathIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No habits yet</h3>
+                    <ArrowPathIcon className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No habits yet</h3>
                     <p className="text-gray-600 mb-6">Create your first habit to start building good routines.</p>
                   </div>
                 )}
