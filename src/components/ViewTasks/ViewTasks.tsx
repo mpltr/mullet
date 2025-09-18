@@ -280,7 +280,7 @@ export function ViewTasks(props: ViewTasksProps) {
             <div className="text-center py-12">
               <HomeIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No homes yet</h3>
-              <p className="text-gray-600 mb-6">Create your first home to start managing tasks.</p>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">Create your first home to start managing tasks.</p>
               
               <button className="bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors">
                 <PlusIcon className="w-5 h-5 inline mr-2" />
@@ -293,7 +293,7 @@ export function ViewTasks(props: ViewTasksProps) {
               <div className="mt-8">
                 <div className="flex items-center space-x-2 mb-4">
                   <EnvelopeIcon className="w-5 h-5 text-blue-600" />
-                  <h2 className="text-lg font-semibold text-gray-900">Pending Home Invitations</h2>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Pending Home Invitations</h2>
                 </div>
                 
                 <div className="space-y-3">
@@ -302,7 +302,7 @@ export function ViewTasks(props: ViewTasksProps) {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <p className="font-medium text-gray-900 text-lg">{invitation.homeName}</p>
-                          <p className="text-sm text-gray-600 mt-1">
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                             Owner: {invitation.inviterName}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
@@ -352,13 +352,13 @@ export function ViewTasks(props: ViewTasksProps) {
 
   return (
     <>
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
       <div className="px-4 py-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Tasks</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Tasks</h1>
         
         {/* Sort By Dropdown */}
         <div className="mb-4 flex items-center space-x-3">
-          <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Sort by</label>
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Sort by</label>
           <div className="relative flex-1">
             <select
               value={groupBy}
@@ -367,22 +367,22 @@ export function ViewTasks(props: ViewTasksProps) {
                 setGroupBy(newValue);
                 updatePreferences({ taskSort: newValue });
               }}
-              className="w-full appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 pl-3 pr-10 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
             >
               <option value="group">Group</option>
               <option value="date">Date</option>
               <option value="room">Room</option>
             </select>
-            <ChevronDownIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
+            <ChevronDownIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
           </div>
         </div>
 
         {/* Filter tabs */}
-        <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg mb-6">
+        <div className="flex space-x-1 bg-gray-200 dark:bg-gray-700 p-1 rounded-lg mb-6">
           <button 
             onClick={() => setFilter('all')}
             className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-              filter === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              filter === 'all' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
             }`}
           >
             All
@@ -390,7 +390,7 @@ export function ViewTasks(props: ViewTasksProps) {
           <button 
             onClick={() => setFilter('pending')}
             className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-              filter === 'pending' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              filter === 'pending' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
             }`}
           >
             Pending
@@ -398,7 +398,7 @@ export function ViewTasks(props: ViewTasksProps) {
           <button 
             onClick={() => setFilter('completed')}
             className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-              filter === 'completed' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              filter === 'completed' ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-600 dark:text-gray-400 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
             }`}
           >
             Completed
@@ -407,7 +407,7 @@ export function ViewTasks(props: ViewTasksProps) {
 
         {isLoading ? (
           <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400"></div>
           </div>
         ) : (
           <>
@@ -417,7 +417,7 @@ export function ViewTasks(props: ViewTasksProps) {
               {/* Ungrouped tasks first */}
               {groupedTasks.ungrouped && (
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
                     {currentHome?.name} Tasks
                   </h2>
                   <div className="space-y-3">
@@ -449,7 +449,7 @@ export function ViewTasks(props: ViewTasksProps) {
 
                 return (
                   <div key={group.id}>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">{group.name}</h2>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{group.name}</h2>
                     <div className="space-y-3">
                       {groupTasks.map((task) => {
                         const room = rooms.find(r => r.id === task.roomId);
@@ -478,7 +478,7 @@ export function ViewTasks(props: ViewTasksProps) {
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
                     {filter === 'completed' ? 'No completed tasks yet' : 'No tasks yet'}
                   </h3>
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
                     {filter === 'completed' 
                       ? 'Complete some tasks to see them here.' 
                       : 'Create your first task to get started.'}
@@ -496,7 +496,7 @@ export function ViewTasks(props: ViewTasksProps) {
 
                   return (
                     <div key={dateCategory}>
-                      <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
                         {getDateCategoryLabel(dateCategory)}
                       </h2>
                       <div className="space-y-3">
@@ -527,7 +527,7 @@ export function ViewTasks(props: ViewTasksProps) {
                 {/* No Room section first */}
                 {roomSortedData.roomGroupedTasks['no-room'] && (
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">No Room</h2>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">No Room</h2>
                     <div className="space-y-3">
                       {roomSortedData.roomGroupedTasks['no-room']?.map((task) => {
                         const group = groups.find(g => g.id === task.groupId);
@@ -555,7 +555,7 @@ export function ViewTasks(props: ViewTasksProps) {
 
                   return (
                     <div key={room.id}>
-                      <h2 className="text-lg font-semibold text-gray-900 mb-4">{room.name}</h2>
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">{room.name}</h2>
                       <div className="space-y-3">
                         {roomTasks.map((task) => {
                           const group = groups.find(g => g.id === task.groupId);

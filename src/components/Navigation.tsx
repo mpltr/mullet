@@ -34,7 +34,7 @@ export function Navigation() {
   const router = useRouter();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 py-2">
       <div className="flex justify-around">
         {navigationItems.map((item) => {
           const isActive = router.pathname === item.href;
@@ -46,8 +46,8 @@ export function Navigation() {
               href={item.href}
               className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
                 isActive 
-                  ? 'text-blue-600' 
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'text-blue-600 dark:text-blue-400' 
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
               }`}
             >
               <Icon className="h-6 w-6" />

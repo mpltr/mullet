@@ -4,6 +4,7 @@ import { CogIcon, HomeIcon, BellIcon, QuestionMarkCircleIcon, ChevronDownIcon, C
 import { Navigation } from "../Navigation";
 import { Input } from "../Input";
 import { ConfirmModal } from "../Modal";
+import { ThemeSelector } from "../ThemeSelector";
 import { useHomes, useHomeInvitations, useEnrichedUserInvitations, useHomesWithMembers } from '../../hooks/useDatabase';
 import { homeService, homeInvitationService } from '../../lib/database';
 import { HomeTypeWithMembers } from '../../types/database';
@@ -48,14 +49,14 @@ const HomeDetails = memo(function HomeDetails({
   
 
   return (
-    <div className="border border-gray-200 rounded-lg">
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg">
       <button
         onClick={onToggleExpanded}
-        className="w-full flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded-lg"
+        className="w-full flex items-center justify-between py-2 px-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg"
       >
         <div className="text-left">
-          <p className="font-medium text-gray-900 text-sm">{home.name}</p>
-          <p className="text-xs text-gray-500">
+          <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">{home.name}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {home.members.length} member{home.members.length !== 1 ? 's' : ''}
             {isOwner && invitations.length > 0 && (
               <span className="ml-1">• {invitations.length} pending invite{invitations.length !== 1 ? 's' : ''}</span>
@@ -83,7 +84,7 @@ const HomeDetails = memo(function HomeDetails({
               <div className="space-y-1">
                 {home.members.map((member) => (
                   <div key={member.uid} className="flex items-center justify-between text-xs py-1">
-                    <div className="text-gray-600">
+                    <div className="text-gray-600 dark:text-gray-400">
                       {member.uid === user?.uid ? (
                         <span>You ({member.email})</span>
                       ) : (
@@ -116,7 +117,7 @@ const HomeDetails = memo(function HomeDetails({
           {/* Non-members see nothing */}
           {!isOwner && !isMember && (
             <div className="mt-3 text-center py-4">
-              <p className="text-xs text-gray-500">You are not a member of this home</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">You are not a member of this home</p>
             </div>
           )}
 
@@ -130,7 +131,7 @@ const HomeDetails = memo(function HomeDetails({
                   <div className="space-y-1">
                     {invitations.map((invitation) => (
                       <div key={invitation.id} className="flex items-center justify-between text-xs py-1">
-                        <span className="text-gray-600">{invitation.invitedEmail}</span>
+                        <span className="text-gray-600 dark:text-gray-400">{invitation.invitedEmail}</span>
                         <button
                           onClick={async () => {
                             try {
@@ -202,6 +203,7 @@ const HomeDetails = memo(function HomeDetails({
 export function ViewProfile(props: ViewProfileProps) {
   const { user, logout } = useAuth();
   const [homesExpanded, setHomesExpanded] = useState(false);
+  const [settingsExpanded, setSettingsExpanded] = useState(false);
   const [expandedHomeIds, setExpandedHomeIds] = useState<Set<string>>(new Set());
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [homeName, setHomeName] = useState('');
@@ -338,12 +340,12 @@ export function ViewProfile(props: ViewProfileProps) {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
         <div className="px-4 py-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Profile</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Profile</h1>
           
           {/* User info */}
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
             <div className="flex items-center space-x-4">
               <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center">
                 <span className="text-white text-xl font-semibold">
@@ -351,10 +353,10 @@ export function ViewProfile(props: ViewProfileProps) {
                 </span>
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {user?.displayName || 'User'}
                 </h2>
-                <p className="text-sm text-gray-600">{user?.email}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{user?.email}</p>
               </div>
             </div>
           </div>
@@ -363,9 +365,9 @@ export function ViewProfile(props: ViewProfileProps) {
           <div className="space-y-4">
             {/* Pending Invitations section */}
             {userInvitations.length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                 <div className="p-4">
-                  <h3 className="font-medium text-gray-900 mb-3">
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-3">
                     Pending Home Invitations ({userInvitations.length})
                   </h3>
                   <div className="space-y-3">
@@ -373,11 +375,11 @@ export function ViewProfile(props: ViewProfileProps) {
                       return (
                         <div key={invitation.id} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg">
                           <div className="flex-1">
-                            <p className="font-medium text-gray-900 text-base">{invitation.homeName}</p>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="font-medium text-gray-900 dark:text-gray-100 text-base">{invitation.homeName}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                               Owner: {invitation.inviterName}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               {invitation.createdAt.toLocaleDateString()}
                             </p>
                           </div>
@@ -416,13 +418,13 @@ export function ViewProfile(props: ViewProfileProps) {
             )}
             
             {/* Homes section - expandable */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
               <button 
                 onClick={() => setHomesExpanded(!homesExpanded)}
-                className="w-full flex items-center space-x-3 p-4 hover:bg-gray-50 transition-colors"
+                className="w-full flex items-center space-x-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
-                <HomeIcon className="w-6 h-6 text-gray-600" />
-                <span className="flex-1 text-left font-medium text-gray-900">
+                <HomeIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                <span className="flex-1 text-left font-medium text-gray-900 dark:text-gray-100">
                   Homes ({homes.length})
                 </span>
                 {homesExpanded ? (
@@ -438,12 +440,12 @@ export function ViewProfile(props: ViewProfileProps) {
                   <div className="border-t border-gray-100 pt-3">
                     {homesLoading ? (
                       <div className="flex items-center justify-center py-4">
-                        <div className="text-sm text-gray-500">Loading homes...</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Loading homes...</div>
                       </div>
                     ) : homes.length === 0 ? (
                       <div className="text-center py-6">
                         <HomeIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-sm text-gray-500 mb-3">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
                           You're not part of any homes yet
                         </p>
                         <button 
@@ -485,27 +487,45 @@ export function ViewProfile(props: ViewProfileProps) {
               )}
             </div>
             
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <button className="w-full flex items-center space-x-3 p-4 hover:bg-gray-50 transition-colors">
-                <BellIcon className="w-6 h-6 text-gray-600" />
-                <span className="flex-1 text-left font-medium text-gray-900">Notifications</span>
-                <span className="text-sm text-gray-500">Settings & preferences</span>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+              <button className="w-full flex items-center space-x-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <BellIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                <span className="flex-1 text-left font-medium text-gray-900 dark:text-gray-100">Notifications</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">Settings & preferences</span>
               </button>
             </div>
             
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <button className="w-full flex items-center space-x-3 p-4 hover:bg-gray-50 transition-colors">
-                <CogIcon className="w-6 h-6 text-gray-600" />
-                <span className="flex-1 text-left font-medium text-gray-900">Settings</span>
-                <span className="text-sm text-gray-500">App preferences</span>
+            {/* Settings section - expandable */}
+            <div className="bg-white dark:bg-gray-800 dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 dark:border-gray-700">
+              <button 
+                onClick={() => setSettingsExpanded(!settingsExpanded)}
+                className="w-full flex items-center space-x-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 dark:hover:bg-gray-700 transition-colors"
+              >
+                <CogIcon className="w-6 h-6 text-gray-600 dark:text-gray-400 dark:text-gray-400" />
+                <span className="flex-1 text-left font-medium text-gray-900 dark:text-gray-100 dark:text-gray-100">Settings</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-400">App preferences</span>
+                {settingsExpanded ? (
+                  <ChevronDownIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
+                ) : (
+                  <ChevronRightIcon className="w-5 h-5 text-gray-400 dark:text-gray-500 dark:text-gray-400" />
+                )}
               </button>
+              
+              {/* Expandable content */}
+              {settingsExpanded && (
+                <div className="px-4 pb-4">
+                  <div className="border-t border-gray-100 dark:border-gray-600 pt-4">
+                    <ThemeSelector />
+                  </div>
+                </div>
+              )}
             </div>
             
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <button className="w-full flex items-center space-x-3 p-4 hover:bg-gray-50 transition-colors">
-                <QuestionMarkCircleIcon className="w-6 h-6 text-gray-600" />
-                <span className="flex-1 text-left font-medium text-gray-900">Help & Support</span>
-                <span className="text-sm text-gray-500">Get help</span>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+              <button className="w-full flex items-center space-x-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <QuestionMarkCircleIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                <span className="flex-1 text-left font-medium text-gray-900 dark:text-gray-100">Help & Support</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">Get help</span>
               </button>
             </div>
           </div>
@@ -520,7 +540,7 @@ export function ViewProfile(props: ViewProfileProps) {
           
           {/* App version */}
           <div className="mt-8 text-center">
-            <p className="text-xs text-gray-500">Mullet v1.0.0</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Mullet v1.0.0</p>
           </div>
         </div>
       </div>
@@ -541,12 +561,12 @@ export function ViewProfile(props: ViewProfileProps) {
       {/* Create Home Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Create New Home</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Create New Home</h2>
               <button 
                 onClick={() => setShowCreateModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-400"
               >
                 <XMarkIcon className="w-6 h-6" />
               </button>

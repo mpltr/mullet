@@ -113,10 +113,10 @@ export function TaskItem({
     <div className={`
       group rounded-lg border transition-all
       ${isCompleted 
-        ? 'bg-gray-50 border-gray-200' 
-        : 'bg-white border-gray-300 hover:border-gray-400'
+        ? 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700' 
+        : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 dark:hover:border-gray-500'
       }
-      ${isOverdue ? 'border-red-300 bg-red-50' : ''}
+      ${isOverdue ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-950' : ''}
     `}>
       {/* Collapsed View - Always Visible */}
       <div 
@@ -134,7 +134,7 @@ export function TaskItem({
             flex-shrink-0 w-5 h-5 rounded border-2 transition-all
             ${isCompleted
               ? 'bg-green-500 border-green-500 text-white'
-              : 'border-gray-300 hover:border-gray-400'
+              : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
             }
             ${isUpdating ? 'opacity-50 cursor-wait' : 'cursor-pointer'}
             ${isOverdue && !isCompleted ? 'border-red-400' : ''}
@@ -150,10 +150,10 @@ export function TaskItem({
           <h3 className={`
             font-medium text-sm
             ${isCompleted 
-              ? 'text-gray-500 line-through' 
+              ? 'text-gray-500 dark:text-gray-400 dark:text-gray-500 line-through' 
               : isOverdue 
                 ? 'text-red-900' 
-                : 'text-gray-900'
+                : 'text-gray-900 dark:text-gray-100'
             }
           `}>
             {task.title}
@@ -166,8 +166,8 @@ export function TaskItem({
               ${isOverdue && !isCompleted 
                 ? 'text-red-600' 
                 : isCompleted 
-                  ? 'text-gray-400' 
-                  : 'text-gray-500'
+                  ? 'text-gray-400 dark:text-gray-500' 
+                  : 'text-gray-500 dark:text-gray-400 dark:text-gray-500'
               }
             `}>
               <ClockIcon className="w-3 h-3" />
@@ -192,7 +192,7 @@ export function TaskItem({
           
           {/* Orphaned Group Indicator */}
           {task.groupId && !groupName && (
-            <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-md">
+            <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 dark:text-gray-400 dark:text-gray-500 rounded-md">
               Ungrouped
             </span>
           )}
@@ -206,7 +206,7 @@ export function TaskItem({
         </div>
 
         {/* Expand/Collapse Indicator */}
-        <div className="flex-shrink-0 p-1 text-gray-400">
+        <div className="flex-shrink-0 p-1 text-gray-400 dark:text-gray-500">
           {isExpanded ? (
             <ChevronDownIcon className="w-4 h-4" />
           ) : (
@@ -225,7 +225,7 @@ export function TaskItem({
               {task.description && (
                 <p className={`
                   text-xs
-                  ${isCompleted ? 'text-gray-400' : 'text-gray-600'}
+                  ${isCompleted ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500'}
                 `}>
                   {task.description}
                 </p>
@@ -233,7 +233,7 @@ export function TaskItem({
               
               {/* Completion Info */}
               {getCompletionText() && (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">
                   {getCompletionText()}
                 </span>
               )}
@@ -248,7 +248,7 @@ export function TaskItem({
                     e.stopPropagation();
                     onEdit(task);
                   }}
-                  className="p-1 text-gray-400 hover:text-blue-600 transition-all"
+                  className="p-1 text-gray-400 dark:text-gray-500 hover:text-blue-600 transition-all"
                   title="Edit task"
                 >
                   <PencilIcon className="w-4 h-4" />
@@ -263,7 +263,7 @@ export function TaskItem({
                     e.stopPropagation();
                     handleDelete();
                   }}
-                  className="p-1 text-gray-400 hover:text-red-600 transition-all"
+                  className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-600 transition-all"
                   title="Delete task"
                 >
                   <TrashIcon className="w-4 h-4" />

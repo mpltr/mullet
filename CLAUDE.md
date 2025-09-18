@@ -147,6 +147,7 @@ home_invitations/{inviteId}
 4. **Service Layer Pattern**: Centralized business logic in service classes
 5. **Optimistic UI**: Immediate feedback with error rollback
 6. **Client-Side Data Processing**: All sorting, filtering, and data transformation happens in the frontend to avoid Firestore indexes and reduce query complexity
+7. **No Server Management**: Claude should NEVER start development servers (npm run dev, etc.) - the user manages their own server
 
 ## Implementation Status
 - ✅ Firebase Authentication (Google OAuth)

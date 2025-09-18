@@ -83,6 +83,7 @@ export interface HabitCompletionType {
 export interface UserPreferences {
   taskSort?: 'group' | 'date' | 'room';
   habitSort?: 'group' | 'date' | 'room';
+  theme?: 'light' | 'dark' | 'system';
 }
 
 export interface UserType {
