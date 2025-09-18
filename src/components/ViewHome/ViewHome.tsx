@@ -10,7 +10,7 @@ export function ViewHome(props: ViewHomeProps) {
   const router = useRouter();
 
   const handleMyHomes = () => {
-    router.push('/rooms');
+    router.push('/tasks');
   };
 
   return (

@@ -1,8 +1,8 @@
-import { CheckIcon, ClockIcon, PlusIcon, HomeIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import { CheckIcon, ClockIcon, PlusIcon, HomeIcon, EnvelopeIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useState, useEffect } from 'react';
 import { Navigation } from "../Navigation";
 import { useAuth } from "../../contexts/AuthContext";
-import { useHomes, useEnrichedUserInvitations, useTasks, useHabits, useGroups, useRooms } from "../../hooks/useDatabase";
+import { useHomes, useEnrichedUserInvitations, useTasks, useHabits, useGroups, useRooms, useUserPreferences } from "../../hooks/useDatabase";
 import { homeInvitationService, taskService, habitService } from "../../lib/database";
 import { TaskType, HabitType } from "../../types/database";
 import { Loader } from "../Loader";
@@ -21,6 +21,7 @@ export function ViewTasks(props: ViewTasksProps) {
   const { user } = useAuth();
   const { homes, loading: homesLoading } = useHomes(user?.uid || '');
   const { invitations, loading: invitationsLoading } = useEnrichedUserInvitations(user?.email || '');
+  const { preferences, loading: preferencesLoading, updatePreferences } = useUserPreferences(user?.uid || '');
   
   // Get current home (first home for now, will add home switching later)
   const currentHome = homes.length > 0 ? homes[0] : null;
@@ -33,12 +34,20 @@ export function ViewTasks(props: ViewTasksProps) {
   
   // UI state
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [groupBy, setGroupBy] = useState<'group' | 'date' | 'room'>(preferences?.taskSort || 'date');
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showHabitModal, setShowHabitModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{id: string, type: 'task' | 'habit', title: string} | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<TaskType | null>(null);
+
+  // Update groupBy when preferences load
+  useEffect(() => {
+    if (preferences?.taskSort) {
+      setGroupBy(preferences.taskSort);
+    }
+  }, [preferences]);
 
   // Perform daily schedule check when homes are loaded
   useEffect(() => {
@@ -50,7 +59,53 @@ export function ViewTasks(props: ViewTasksProps) {
     }
   }, [user, homes, homesLoading]);
 
-  // Helper functions
+  // Helper functions for date grouping
+  const getDateCategory = (dueDate: Date | null, isCompleted: boolean) => {
+    if (!dueDate) return 'no-due-date';
+    
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+    
+    // Reset times to compare dates only
+    const dueDateOnly = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const tomorrowOnly = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+    const nextWeekOnly = new Date(nextWeek.getFullYear(), nextWeek.getMonth(), nextWeek.getDate());
+    
+    if (!isCompleted && dueDateOnly < todayOnly) return 'overdue';
+    if (dueDateOnly.getTime() === todayOnly.getTime()) return 'today';
+    if (dueDateOnly.getTime() === tomorrowOnly.getTime()) return 'tomorrow';
+    if (dueDateOnly <= nextWeekOnly) return 'this-week';
+    return 'later';
+  };
+
+  const getDateCategoryOrder = (category: string) => {
+    const order = {
+      'overdue': 0,
+      'today': 1,
+      'tomorrow': 2,
+      'this-week': 3,
+      'later': 4,
+      'no-due-date': 5
+    };
+    return order[category as keyof typeof order] || 6;
+  };
+
+  const getDateCategoryLabel = (category: string) => {
+    const labels = {
+      'overdue': 'Overdue',
+      'today': 'Today',
+      'tomorrow': 'Tomorrow',
+      'this-week': 'This Week',
+      'later': 'Later',
+      'no-due-date': 'No Due Date'
+    };
+    return labels[category as keyof typeof labels] || category;
+  };
+
   const handleDeleteClick = (id: string, type: 'task' | 'habit', title: string) => {
     setItemToDelete({ id, type, title });
     setShowDeleteModal(true);
@@ -90,52 +145,126 @@ export function ViewTasks(props: ViewTasksProps) {
     return true;
   });
 
-  // Filter habits for current home
-  const currentHabits = habits.filter(habit => 
-    currentHome && habit.homeId === currentHome.id
-  );
+  // Note: Habits are now managed in a separate page, not shown here
 
-  // Group tasks and habits by group (handle orphaned groups)
-  const groupedTasks: Record<string, typeof filteredTasks> = {};
-  const groupedHabits: Record<string, typeof currentHabits> = {};
-  
-  filteredTasks.forEach(task => {
-    // If task has groupId but group doesn't exist, treat as ungrouped
-    const groupExists = task.groupId ? groups.some(g => g.id === task.groupId) : false;
-    const groupKey = (task.groupId && groupExists) ? task.groupId : 'ungrouped';
-    if (!groupedTasks[groupKey]) groupedTasks[groupKey] = [];
-    groupedTasks[groupKey].push(task);
-  });
-
-  currentHabits.forEach(habit => {
-    // If habit has groupId but group doesn't exist, treat as ungrouped
-    const groupExists = habit.groupId ? groups.some(g => g.id === habit.groupId) : false;
-    const groupKey = (habit.groupId && groupExists) ? habit.groupId : 'ungrouped';
-    if (!groupedHabits[groupKey]) groupedHabits[groupKey] = [];
-    groupedHabits[groupKey].push(habit);
-  });
-
-  // Sort tasks within groups: uncompleted first, then completed, then by due date within each status
-  Object.keys(groupedTasks).forEach(groupKey => {
-    groupedTasks[groupKey].sort((a, b) => {
-      // First sort by completion status: uncompleted tasks first
-      const aCompleted = a.status === 'completed';
-      const bCompleted = b.status === 'completed';
-      
-      if (aCompleted !== bCompleted) {
-        return aCompleted ? 1 : -1; // uncompleted (false) comes before completed (true)
-      }
-      
-      // Within same completion status, sort by due date
-      // Tasks without due date go last
-      if (!a.dueDate && !b.dueDate) return 0;
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+  // Group-first sorting function
+  const getGroupSortedData = () => {
+    const groupedTasks: Record<string, typeof filteredTasks> = {};
+    
+    filteredTasks.forEach(task => {
+      // If task has groupId but group doesn't exist, treat as ungrouped
+      const groupExists = task.groupId ? groups.some(g => g.id === task.groupId) : false;
+      const groupKey = (task.groupId && groupExists) ? task.groupId : 'ungrouped';
+      if (!groupedTasks[groupKey]) groupedTasks[groupKey] = [];
+      groupedTasks[groupKey].push(task);
     });
-  });
 
-  if (homesLoading || invitationsLoading) {
+    // Sort tasks within groups: uncompleted first, then completed, then by due date within each status
+    Object.keys(groupedTasks).forEach(groupKey => {
+      groupedTasks[groupKey].sort((a, b) => {
+        // First sort by completion status: uncompleted tasks first
+        const aCompleted = a.status === 'completed';
+        const bCompleted = b.status === 'completed';
+        
+        if (aCompleted !== bCompleted) {
+          return aCompleted ? 1 : -1; // uncompleted (false) comes before completed (true)
+        }
+        
+        // Within same completion status, sort by due date
+        // Tasks without due date go last
+        if (!a.dueDate && !b.dueDate) return 0;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      });
+    });
+
+    return { groupedTasks };
+  };
+
+  // Date-first sorting function
+  const getDateSortedData = () => {
+    const dateGroupedTasks: Record<string, typeof filteredTasks> = {};
+    
+    filteredTasks.forEach(task => {
+      const dateCategory = getDateCategory(task.dueDate ? new Date(task.dueDate) : null, task.status === 'completed');
+      if (!dateGroupedTasks[dateCategory]) dateGroupedTasks[dateCategory] = [];
+      dateGroupedTasks[dateCategory].push(task);
+    });
+
+    // Sort within each date category by completion status first, then by group
+    Object.keys(dateGroupedTasks).forEach(dateKey => {
+      dateGroupedTasks[dateKey].sort((a, b) => {
+        // First sort by completion status: uncompleted tasks first
+        const aCompleted = a.status === 'completed';
+        const bCompleted = b.status === 'completed';
+        
+        if (aCompleted !== bCompleted) {
+          return aCompleted ? 1 : -1; // uncompleted (false) comes before completed (true)
+        }
+        
+        // Within same completion status, sort by group
+        const aGroupName = groups.find(g => g.id === a.groupId)?.name || 'Ungrouped';
+        const bGroupName = groups.find(g => g.id === b.groupId)?.name || 'Ungrouped';
+        
+        if (aGroupName !== bGroupName) {
+          return aGroupName.localeCompare(bGroupName);
+        }
+        
+        return 0;
+      });
+    });
+
+    return { dateGroupedTasks };
+  };
+
+  // Room-first sorting function
+  const getRoomSortedData = () => {
+    const roomGroupedTasks: Record<string, typeof filteredTasks> = {};
+    
+    filteredTasks.forEach(task => {
+      const roomKey = task.roomId || 'no-room';
+      if (!roomGroupedTasks[roomKey]) roomGroupedTasks[roomKey] = [];
+      roomGroupedTasks[roomKey].push(task);
+    });
+
+    // Sort within each room by completion status first, then by group, then by due date
+    Object.keys(roomGroupedTasks).forEach(roomKey => {
+      roomGroupedTasks[roomKey].sort((a, b) => {
+        // First sort by completion status: uncompleted tasks first
+        const aCompleted = a.status === 'completed';
+        const bCompleted = b.status === 'completed';
+        
+        if (aCompleted !== bCompleted) {
+          return aCompleted ? 1 : -1; // uncompleted (false) comes before completed (true)
+        }
+        
+        // Within same completion status, sort by group
+        const aGroupName = groups.find(g => g.id === a.groupId)?.name || 'Ungrouped';
+        const bGroupName = groups.find(g => g.id === b.groupId)?.name || 'Ungrouped';
+        
+        if (aGroupName !== bGroupName) {
+          return aGroupName.localeCompare(bGroupName);
+        }
+        
+        // Finally by due date
+        if (!a.dueDate && !b.dueDate) return 0;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      });
+    });
+
+    return { roomGroupedTasks };
+  };
+
+  // Get the appropriate data based on group preference
+  const groupSortedData = getGroupSortedData();
+  const dateSortedData = getDateSortedData();
+  const roomSortedData = getRoomSortedData();
+  const { groupedTasks } = groupSortedData;
+
+  if (homesLoading || invitationsLoading || preferencesLoading) {
     return <Loader />;
   }
 
@@ -225,8 +354,29 @@ export function ViewTasks(props: ViewTasksProps) {
     <>
     <div className="min-h-screen bg-gray-50 pb-20">
       <div className="px-4 py-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Tasks & Habits</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Tasks</h1>
         
+        {/* Sort By Dropdown */}
+        <div className="mb-4 flex items-center space-x-3">
+          <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Sort by</label>
+          <div className="relative flex-1">
+            <select
+              value={groupBy}
+              onChange={(e) => {
+                const newValue = e.target.value as 'group' | 'date' | 'room';
+                setGroupBy(newValue);
+                updatePreferences({ taskSort: newValue });
+              }}
+              className="w-full appearance-none bg-white border border-gray-300 rounded-md py-2 pl-3 pr-10 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="group">Group</option>
+              <option value="date">Date</option>
+              <option value="room">Room</option>
+            </select>
+            <ChevronDownIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400 pointer-events-none" />
+          </div>
+        </div>
+
         {/* Filter tabs */}
         <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg mb-6">
           <button 
@@ -261,30 +411,17 @@ export function ViewTasks(props: ViewTasksProps) {
           </div>
         ) : (
           <>
-
-            {/* Tasks and Habits organized by groups */}
-            <div className="space-y-6">
+            {groupBy === 'group' ? (
+              /* Group-First Display */
+              <div className="space-y-6">
               {/* Ungrouped tasks first */}
-              {(groupedTasks.ungrouped || groupedHabits.ungrouped) && (
+              {groupedTasks.ungrouped && (
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">
                     {currentHome?.name} Tasks
                   </h2>
                   <div className="space-y-3">
-                    {groupedHabits.ungrouped?.map((habit) => {
-                      const room = rooms.find(r => r.id === habit.roomId);
-                      return (
-                        <HabitItem
-                          key={habit.id}
-                          habit={habit}
-                          userId={user?.uid || ''}
-                          roomName={room?.name}
-                          showRoomTag={true}
-                          onDelete={(habitId) => handleDeleteClick(habitId, 'habit', habit.title)}
-                        />
-                      );
-                    })}
-                    {groupedTasks.ungrouped?.map((task) => {
+                    {groupedTasks.ungrouped.map((task) => {
                       const room = rooms.find(r => r.id === task.roomId);
                       const group = task.groupId ? groups.find(g => g.id === task.groupId) : null;
                       return (
@@ -304,30 +441,16 @@ export function ViewTasks(props: ViewTasksProps) {
                 </div>
               )}
 
-              {/* Grouped tasks and habits */}
+              {/* Grouped tasks */}
               {groups.map((group) => {
                 const groupTasks = groupedTasks[group.id] || [];
-                const groupHabits = groupedHabits[group.id] || [];
                 
-                if (groupTasks.length === 0 && groupHabits.length === 0) return null;
+                if (groupTasks.length === 0) return null;
 
                 return (
                   <div key={group.id}>
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">{group.name}</h2>
                     <div className="space-y-3">
-                      {groupHabits.map((habit) => {
-                        const room = rooms.find(r => r.id === habit.roomId);
-                        return (
-                          <HabitItem
-                            key={habit.id}
-                            habit={habit}
-                            userId={user?.uid || ''}
-                            roomName={room?.name}
-                            showRoomTag={true}
-                            onDelete={(habitId) => handleDeleteClick(habitId, 'habit', habit.title)}
-                          />
-                        );
-                      })}
                       {groupTasks.map((task) => {
                         const room = rooms.find(r => r.id === task.roomId);
                         return (
@@ -348,21 +471,112 @@ export function ViewTasks(props: ViewTasksProps) {
                 );
               })}
 
-              {/* Empty state when no tasks or habits */}
-              {filteredTasks.length === 0 && currentHabits.length === 0 && (
+              {/* Empty state when no tasks */}
+              {filteredTasks.length === 0 && (
                 <div className="text-center py-12">
                   <CheckIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    {filter === 'completed' ? 'No completed tasks yet' : 'No tasks or habits yet'}
+                    {filter === 'completed' ? 'No completed tasks yet' : 'No tasks yet'}
                   </h3>
                   <p className="text-gray-600 mb-6">
                     {filter === 'completed' 
                       ? 'Complete some tasks to see them here.' 
-                      : 'Create your first task or habit to get started.'}
+                      : 'Create your first task to get started.'}
                   </p>
                 </div>
               )}
-            </div>
+              </div>
+            ) : groupBy === 'date' ? (
+              /* Date-First Display */
+              <div className="space-y-6">
+                {['overdue', 'today', 'tomorrow', 'this-week', 'later', 'no-due-date'].map((dateCategory) => {
+                  const dateTasks = dateSortedData.dateGroupedTasks[dateCategory] || [];
+                  
+                  if (dateTasks.length === 0) return null;
+
+                  return (
+                    <div key={dateCategory}>
+                      <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                        {getDateCategoryLabel(dateCategory)}
+                      </h2>
+                      <div className="space-y-3">
+                        {dateTasks.map((task) => {
+                          const room = rooms.find(r => r.id === task.roomId);
+                          const group = groups.find(g => g.id === task.groupId);
+                          return (
+                            <TaskItem
+                              key={task.id}
+                              task={task}
+                              userId={user?.uid || ''}
+                              roomName={room?.name}
+                              groupName={group?.name}
+                              showRoomTag={true}
+                              onEdit={handleTaskEdit}
+                              onDelete={(taskId) => handleDeleteClick(taskId, 'task', task.title)}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Room-First Display */
+              <div className="space-y-6">
+                {/* No Room section first */}
+                {roomSortedData.roomGroupedTasks['no-room'] && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4">No Room</h2>
+                    <div className="space-y-3">
+                      {roomSortedData.roomGroupedTasks['no-room']?.map((task) => {
+                        const group = groups.find(g => g.id === task.groupId);
+                        return (
+                          <TaskItem
+                            key={task.id}
+                            task={task}
+                            userId={user?.uid || ''}
+                            groupName={group?.name}
+                            showRoomTag={false}
+                            onEdit={handleTaskEdit}
+                            onDelete={(taskId) => handleDeleteClick(taskId, 'task', task.title)}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Room sections */}
+                {rooms.map((room) => {
+                  const roomTasks = roomSortedData.roomGroupedTasks[room.id] || [];
+                  
+                  if (roomTasks.length === 0) return null;
+
+                  return (
+                    <div key={room.id}>
+                      <h2 className="text-lg font-semibold text-gray-900 mb-4">{room.name}</h2>
+                      <div className="space-y-3">
+                        {roomTasks.map((task) => {
+                          const group = groups.find(g => g.id === task.groupId);
+                          return (
+                            <TaskItem
+                              key={task.id}
+                              task={task}
+                              userId={user?.uid || ''}
+                              groupName={group?.name}
+                              showRoomTag={false}
+                              onEdit={handleTaskEdit}
+                              onDelete={(taskId) => handleDeleteClick(taskId, 'task', task.title)}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -396,23 +610,6 @@ export function ViewTasks(props: ViewTasksProps) {
       )}
     </Modal>
 
-    {/* Habit Creation Modal */}
-    <Modal
-      isOpen={showHabitModal}
-      onClose={() => setShowHabitModal(false)}
-      title="Create New Habit"
-      size="md"
-    >
-      {currentHome && (
-        <HabitForm
-          homeId={currentHome.id}
-          userId={user?.uid || ''}
-          rooms={rooms}
-          onSave={() => setShowHabitModal(false)}
-          onCancel={() => setShowHabitModal(false)}
-        />
-      )}
-    </Modal>
 
     {/* Delete Confirmation Modal */}
     <ConfirmModal
@@ -426,12 +623,16 @@ export function ViewTasks(props: ViewTasksProps) {
       isLoading={isDeleting}
     />
 
-    {/* Floating Action Button */}
+    {/* Floating Action Button - Task Creation Only */}
     {currentHome && (
-      <FloatingActionButton
-        onAddTask={() => setShowTaskModal(true)}
-        onAddHabit={() => setShowHabitModal(true)}
-      />
+      <div className="fixed bottom-24 right-6 z-30">
+        <button
+          onClick={() => setShowTaskModal(true)}
+          className="w-14 h-14 bg-blue-600 text-white rounded-lg shadow-lg hover:bg-blue-700 hover:scale-105 transition-all duration-300 ease-in-out transform flex items-center justify-center"
+        >
+          <PlusIcon className="w-6 h-6" />
+        </button>
+      </div>
     )}
 
     <Navigation />

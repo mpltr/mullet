@@ -10,7 +10,7 @@ import {
   Unsubscribe 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { HomeType, RoomType, TaskType, HomeInvitationType, HomeTypeWithMembers, HomeMember, EnrichedHomeInvitationType, HabitType, GroupType, HabitCompletionType, COLLECTIONS } from '../types/database';
+import { HomeType, RoomType, TaskType, HomeInvitationType, HomeTypeWithMembers, HomeMember, EnrichedHomeInvitationType, HabitType, GroupType, HabitCompletionType, UserPreferences, COLLECTIONS } from '../types/database';
 import { userService, habitService, groupService } from '../lib/database';
 import { useUsers } from '../contexts/UserContext';
 
@@ -717,6 +717,68 @@ export function useLastHabitCompletion(habitId: string, homeId?: string) {
   return { lastCompletion, loading, error };
 }
 
+// Hook for getting all habit completions for a home
+export function useAllHabitCompletions(homeId: string) {
+  const [completions, setCompletions] = useState<HabitCompletionType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!homeId) {
+      setLoading(false);
+      return;
+    }
+
+    console.log('🔍 Query: habit_completions where homeId ==', homeId);
+    
+    const q = query(
+      collection(db, COLLECTIONS.HABIT_COMPLETIONS),
+      where('homeId', '==', homeId)
+    );
+
+    const unsubscribe: Unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const completionsData: HabitCompletionType[] = [];
+        querySnapshot.forEach((doc) => {
+          completionsData.push({
+            id: doc.id,
+            ...convertTimestamps(doc.data())
+          } as HabitCompletionType);
+        });
+        
+        // Sort by completedAt descending (newest first)
+        completionsData.sort((a, b) => {
+          const aTime = a.completedAt?.getTime() || 0;
+          const bTime = b.completedAt?.getTime() || 0;
+          return bTime - aTime;
+        });
+        
+        setCompletions(completionsData);
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        console.error('Error fetching all habit completions:', err);
+        
+        if (err.code === 'permission-denied') {
+          console.warn('Permission denied for habit completions, setting empty array');
+          setCompletions([]);
+          setLoading(false);
+          setError(null);
+        } else {
+          setError(err.message);
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [homeId]);
+
+  return { completions, loading, error };
+}
+
 // Hook for real-time groups data for a specific home
 export function useGroups(homeId: string) {
   const [groups, setGroups] = useState<GroupType[]>([]);
@@ -806,4 +868,48 @@ export function useGroup(groupId: string) {
   }, [groupId]);
 
   return { group, loading, error };
+}
+
+// Hook for user preferences
+export function useUserPreferences(userId: string) {
+  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchPreferences = async () => {
+      try {
+        const userPrefs = await userService.getPreferences(userId);
+        setPreferences(userPrefs || {});
+        setError(null);
+      } catch (err: any) {
+        console.error('Error fetching user preferences:', err);
+        setError(err.message);
+        setPreferences({});
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPreferences();
+  }, [userId]);
+
+  const updatePreferences = async (newPreferences: UserPreferences) => {
+    if (!userId) return;
+
+    try {
+      await userService.updatePreferences(userId, newPreferences);
+      setPreferences(prev => ({ ...prev, ...newPreferences }));
+    } catch (err: any) {
+      console.error('Error updating user preferences:', err);
+      setError(err.message);
+    }
+  };
+
+  return { preferences, loading, error, updatePreferences };
 }

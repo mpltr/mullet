@@ -16,7 +16,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { HomeType, RoomType, TaskType, UserType, HomeInvitationType, GroupType, HabitType, TaskCompletionType, HabitCompletionType, COLLECTIONS } from '../types/database';
+import { HomeType, RoomType, TaskType, UserType, UserPreferences, HomeInvitationType, GroupType, HabitType, TaskCompletionType, HabitCompletionType, COLLECTIONS } from '../types/database';
 
 // Utility function to convert Firestore Timestamp to Date
 const convertTimestamps = (data: any): any => {
@@ -866,6 +866,44 @@ export const userService = {
         homes: homes.filter((id: string) => id !== homeId)
       });
     }
+  },
+
+  // Update user preferences
+  async updatePreferences(userId: string, preferences: UserPreferences): Promise<void> {
+    const userRef = doc(db, COLLECTIONS.USERS, userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      // Create user document with preferences if it doesn't exist
+      await setDoc(userRef, {
+        homes: [],
+        preferences,
+        createdAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp()
+      });
+      return;
+    }
+    
+    const userData = userDoc.data();
+    const currentPreferences = userData.preferences || {};
+    
+    await updateDoc(userRef, {
+      preferences: {
+        ...currentPreferences,
+        ...preferences
+      }
+    });
+  },
+
+  // Get user preferences
+  async getPreferences(userId: string): Promise<UserPreferences | null> {
+    const userRef = doc(db, COLLECTIONS.USERS, userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) return null;
+    
+    const userData = userDoc.data();
+    return userData.preferences || null;
   }
 };
 
