@@ -107,16 +107,20 @@ export function TaskItem({
     }
   };
 
-  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !isCompleted;
+  const isDueToday = task.dueDate && new Date(task.dueDate).toDateString() === new Date().toDateString() && !isCompleted;
+  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !isDueToday && !isCompleted;
 
   return (
     <div className={`
       group rounded-lg border transition-all
       ${isCompleted 
         ? 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700' 
-        : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 dark:hover:border-gray-500'
+        : isOverdue
+        ? 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800/50 hover:border-red-300 dark:hover:border-red-700'
+        : isDueToday
+        ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/50 hover:border-blue-300 dark:hover:border-blue-700'
+        : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
       }
-      ${isOverdue ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-950' : ''}
     `}>
       {/* Collapsed View - Always Visible */}
       <div 
@@ -137,7 +141,8 @@ export function TaskItem({
               : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
             }
             ${isUpdating ? 'opacity-50 cursor-wait' : 'cursor-pointer'}
-            ${isOverdue && !isCompleted ? 'border-red-400' : ''}
+            ${isOverdue && !isCompleted ? 'border-red-300 dark:border-red-600' : ''}
+            ${isDueToday && !isCompleted ? 'border-blue-300 dark:border-blue-600' : ''}
           `}
         >
           {isCompleted && (
@@ -150,9 +155,11 @@ export function TaskItem({
           <h3 className={`
             font-medium text-sm
             ${isCompleted 
-              ? 'text-gray-500 dark:text-gray-400 dark:text-gray-500 line-through' 
+              ? 'text-gray-500 dark:text-gray-400 line-through' 
               : isOverdue 
-                ? 'text-red-900' 
+                ? 'text-red-800 dark:text-red-200' 
+                : isDueToday
+                ? 'text-blue-800 dark:text-blue-200'
                 : 'text-gray-900 dark:text-gray-100'
             }
           `}>
@@ -164,10 +171,12 @@ export function TaskItem({
             <div className={`
               flex items-center space-x-1 text-xs mt-1
               ${isOverdue && !isCompleted 
-                ? 'text-red-600' 
+                ? 'text-red-700 dark:text-red-300' 
+                : isDueToday && !isCompleted
+                ? 'text-blue-700 dark:text-blue-300'
                 : isCompleted 
                   ? 'text-gray-400 dark:text-gray-500' 
-                  : 'text-gray-500 dark:text-gray-400 dark:text-gray-500'
+                  : 'text-gray-500 dark:text-gray-400'
               }
             `}>
               <ClockIcon className="w-3 h-3" />

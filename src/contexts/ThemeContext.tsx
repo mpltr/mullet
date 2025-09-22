@@ -1,62 +1,88 @@
 "use client";
-import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { useUserPreferences } from "../hooks/useDatabase";
 import { useAuth } from "./AuthContext";
-import { useEffect, useRef } from "react";
-import { useTheme } from "next-themes";
+import { useEffect, useState, createContext, useContext } from "react";
+
+type Theme = 'light' | 'dark' | 'system';
+
+interface ThemeContextType {
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+}
+
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
+export function useTheme(): ThemeContextType {
+  const context = useContext(ThemeContext);
+  if (context === undefined) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+}
 
 interface ThemeProviderProps {
   children: React.ReactNode;
 }
 
-// Inner component to sync theme with Firebase preferences
-function ThemeSync() {
-  const { user } = useAuth();
-  const { preferences, updatePreferences } = useUserPreferences(user?.uid || '');
-  const { theme, setTheme } = useTheme();
-  const isInitialLoad = useRef(true);
-
-  // Debug logging
-  useEffect(() => {
-    console.log('🎨 ThemeSync state:', {
-      userExists: !!user,
-      userId: user?.uid,
-      theme,
-      preferencesTheme: preferences?.theme,
-      isInitialLoad: isInitialLoad.current
-    });
-  }, [user, theme, preferences]);
-
-  // Load saved theme preference on app start (only for authenticated users)
-  useEffect(() => {
-    if (user?.uid && preferences?.theme && isInitialLoad.current) {
-      console.log('🎨 Loading theme preference from Firebase:', preferences.theme);
-      setTheme(preferences.theme);
-      isInitialLoad.current = false;
-    }
-  }, [user?.uid, preferences?.theme, setTheme]);
-
-  // Save theme changes to Firebase (but not on initial load, and only for authenticated users)
-  useEffect(() => {
-    if (!isInitialLoad.current && theme && user?.uid && updatePreferences) {
-      console.log('🎨 Saving theme preference to Firebase:', theme);
-      updatePreferences({ theme: theme as 'light' | 'dark' | 'system' });
-    }
-  }, [theme, updatePreferences, user?.uid]);
-
-  return null;
-}
-
 export default function ThemeProvider({ children }: ThemeProviderProps) {
+  const { user } = useAuth();
+  const { preferences, loading: preferencesLoading, updatePreferences } = useUserPreferences(user?.uid || "");
+  const [theme, setThemeState] = useState<Theme>('system');
+  const [hasLoadedFromFirebase, setHasLoadedFromFirebase] = useState(false);
+
+  // Apply theme to document
+  useEffect(() => {
+    const root = document.documentElement;
+    // Remove all theme-related classes first
+    root.classList.remove('dark', 'light');
+    
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      if (mediaQuery.matches) {
+        root.classList.add('dark');
+      }
+      
+      const handler = (e: MediaQueryListEvent) => {
+        root.classList.remove('dark', 'light');
+        if (e.matches) {
+          root.classList.add('dark');
+        }
+      };
+      
+      mediaQuery.addEventListener('change', handler);
+      return () => mediaQuery.removeEventListener('change', handler);
+    } else if (theme === 'dark') {
+      root.classList.add('dark');
+    }
+    // For light theme, we don't add any class (default state)
+    
+  }, [theme]);
+
+  // Load saved theme preference from Firebase
+  useEffect(() => {
+    if (user?.uid && !preferencesLoading && preferences && !hasLoadedFromFirebase) {
+      if (preferences.theme) {
+        console.log('🎨 Loading theme preference from Firebase:', preferences.theme);
+        setThemeState(preferences.theme);
+      }
+      setHasLoadedFromFirebase(true);
+    }
+  }, [user?.uid, preferences, preferencesLoading, hasLoadedFromFirebase]);
+
+  // Save theme changes to Firebase when theme state changes
+  useEffect(() => {
+    if (hasLoadedFromFirebase && theme && user?.uid && updatePreferences) {
+      updatePreferences({ theme });
+    }
+  }, [theme, hasLoadedFromFirebase, user?.uid]); // Removed updatePreferences from deps
+
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme);
+  };
+
   return (
-    <NextThemesProvider
-      attribute="data-theme"
-      defaultTheme="system"
-      enableSystem={true}
-      disableTransitionOnChange={true}
-    >
-      <ThemeSync />
+    <ThemeContext.Provider value={{ theme, setTheme }}>
       {children}
-    </NextThemesProvider>
+    </ThemeContext.Provider>
   );
 }
