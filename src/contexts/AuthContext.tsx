@@ -4,7 +4,9 @@ import {
   User,
   signInWithPopup,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import { userService } from '../lib/database';
@@ -36,6 +38,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter();
 
   useEffect(() => {
+    // Configure Firebase Auth persistence to keep users logged in
+    const initAuth = async () => {
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+      } catch (error) {
+        console.error('Error setting auth persistence:', error);
+      }
+    };
+
+    initAuth();
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       
@@ -61,7 +74,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return unsubscribe;
   }, []);
 
-  const loginWithGoogle = async (redirectTo: string = '/rooms'): Promise<void> => {
+  const loginWithGoogle = async (redirectTo: string = '/tasks'): Promise<void> => {
     await signInWithPopup(auth, googleProvider);
     router.push(redirectTo);
   };

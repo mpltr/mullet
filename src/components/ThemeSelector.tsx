@@ -1,5 +1,5 @@
 "use client";
-import { useTheme } from "next-themes";
+import { useTheme } from "../contexts/ThemeContext";
 import { useEffect, useState } from "react";
 import { SunIcon, MoonIcon, ComputerDesktopIcon } from "@heroicons/react/24/outline";
 

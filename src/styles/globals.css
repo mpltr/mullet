@@ -1,7 +1,11 @@
 @import "tailwindcss";
 
-/* Custom dark variant for next-themes compatibility */
-@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+@theme {
+  --default-transition-duration: 150ms;
+}
+
+/* Configure dark mode for Tailwind CSS v4 */
+@variant dark (.dark &);
 
 body {
   font-family: Arial, Helvetica, sans-serif;

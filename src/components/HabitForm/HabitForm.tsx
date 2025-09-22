@@ -80,12 +80,12 @@ export function HabitForm({
   const isFormValid = title.trim().length > 0;
 
   return (
-    <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-4">
+    <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900 dark:to-indigo-900 border border-purple-200 dark:border-purple-700 rounded-lg p-4">
       <div className="mb-4">
-        <h3 className="text-lg font-medium text-purple-900">
+        <h3 className="text-lg font-medium text-purple-900 dark:text-purple-100">
           {habit ? 'Edit Habit' : 'Create New Habit'}
         </h3>
-        <p className="text-sm text-purple-700 mt-1">
+        <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">
           Habits can be completed multiple times and track your progress over time.
         </p>
       </div>
@@ -104,7 +104,7 @@ export function HabitForm({
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Description
           </label>
           <textarea
@@ -113,14 +113,14 @@ export function HabitForm({
             placeholder="Add details about this habit..."
             disabled={isLoading || submitting}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 disabled:opacity-50"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 disabled:opacity-50"
           />
         </div>
 
         {/* Group Selection */}
         {!groupsLoading && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Group
             </label>
             <GroupSelector
@@ -137,14 +137,14 @@ export function HabitForm({
         {/* Room Selection */}
         {rooms.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Room
             </label>
             <select
               value={roomId}
               onChange={(e) => setRoomId(e.target.value)}
               disabled={isLoading || submitting}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 disabled:opacity-50"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 disabled:opacity-50"
             >
               <option value="">No specific room</option>
               {rooms.map((room) => (
@@ -163,7 +163,7 @@ export function HabitForm({
               type="button"
               onClick={onCancel}
               disabled={submitting}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-transparent border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
             >
               Cancel
             </button>

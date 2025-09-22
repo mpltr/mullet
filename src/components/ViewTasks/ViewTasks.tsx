@@ -84,8 +84,8 @@ export function ViewTasks(props: ViewTasksProps) {
 
   const getDateCategoryOrder = (category: string) => {
     const order = {
-      'overdue': 0,
-      'today': 1,
+      'today': 0,
+      'overdue': 1,
       'tomorrow': 2,
       'this-week': 3,
       'later': 4,
@@ -489,7 +489,7 @@ export function ViewTasks(props: ViewTasksProps) {
             ) : groupBy === 'date' ? (
               /* Date-First Display */
               <div className="space-y-6">
-                {['overdue', 'today', 'tomorrow', 'this-week', 'later', 'no-due-date'].map((dateCategory) => {
+                {['today', 'overdue', 'tomorrow', 'this-week', 'later', 'no-due-date'].map((dateCategory) => {
                   const dateTasks = dateSortedData.dateGroupedTasks[dateCategory] || [];
                   
                   if (dateTasks.length === 0) return null;

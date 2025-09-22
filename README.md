@@ -53,6 +53,38 @@ src/
 - **Tailwind CSS** for all styling
 - **Inline styles** only when Tailwind cannot provide a solution (e.g., colors from an API)
 
+**Dark Mode & Theming:**
+
+The application implements a comprehensive dark/light theme system with user preference persistence:
+
+- **Theme Provider**: Uses `next-themes` for SSR-compatible theme management without flash
+- **Tailwind v4 Integration**: Custom dark variant using `@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));`
+- **User Preferences**: Theme selection persisted to Firebase in user preferences alongside sort preferences
+- **Theme Control**: Horizontal radio button selector in profile settings (Light, Dark, System)
+- **Default Behavior**: Defaults to system theme preference
+- **Component Support**: All UI components include comprehensive dark mode variants
+
+**Theme Implementation Pattern:**
+```tsx
+// Component with dark mode support
+<div className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+  <h1 className="text-gray-900 dark:text-gray-100">Title</h1>
+  <p className="text-gray-600 dark:text-gray-400">Description</p>
+</div>
+
+// Theme selector integration
+import { ThemeSelector } from '@/components/ThemeSelector';
+
+// In settings/profile area
+<ThemeSelector />
+```
+
+**Key Theme Classes:**
+- **Backgrounds**: `bg-white dark:bg-gray-800`, `bg-gray-50 dark:bg-gray-900`
+- **Text**: `text-gray-900 dark:text-gray-100`, `text-gray-600 dark:text-gray-400`
+- **Borders**: `border-gray-300 dark:border-gray-600`
+- **Interactive**: `hover:bg-gray-100 dark:hover:bg-gray-700`
+
 **Fonts:**
 
 The project uses Geist as the primary font system:

@@ -1,4 +1,5 @@
 import { useRouter } from 'next/router';
+import { useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 
 export interface ViewHomeProps {
@@ -6,8 +7,15 @@ export interface ViewHomeProps {
 }
 
 export function ViewHome(props: ViewHomeProps) {
-  const { user, loginWithGoogle } = useAuth();
+  const { user, loginWithGoogle, loading } = useAuth();
   const router = useRouter();
+
+  // Redirect logged-in users to tasks page
+  useEffect(() => {
+    if (!loading && user) {
+      router.push('/tasks');
+    }
+  }, [user, loading, router]);
 
   const handleMyHomes = () => {
     router.push('/tasks');

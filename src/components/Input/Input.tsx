@@ -36,10 +36,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   ).join(' ');
 
   const baseInputClasses = `
-    border border-gray-300 rounded 
+    border border-gray-300 dark:border-gray-600 rounded 
+    bg-transparent
     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent 
-    text-gray-900 placeholder-gray-500
-    disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
+    text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400
+    disabled:bg-gray-50 dark:disabled:bg-gray-700 disabled:text-gray-500 dark:disabled:text-gray-400 disabled:cursor-not-allowed
     ${sizeClasses[size]}
     ${fullWidth || flexClasses ? 'w-full' : ''}
     ${error ? 'border-red-500 focus:ring-red-500' : ''}
@@ -56,7 +57,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       {label && (
         <label 
           htmlFor={inputId} 
-          className="block text-sm font-medium text-gray-700 mb-2"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
         >
           {label}
           {props.required && <span className="text-red-500 ml-1">*</span>}
@@ -76,7 +77,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
             <p className="text-sm text-red-600">{error}</p>
           )}
           {helperText && !error && (
-            <p className="text-sm text-gray-500">{helperText}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{helperText}</p>
           )}
         </div>
       )}
